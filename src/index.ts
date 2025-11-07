@@ -178,7 +178,7 @@ program
       const timestamp = new Date();
       const dateStr = timestamp.toISOString().split('T')[0]; // YYYY-MM-DD
       const timeStr = timestamp.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
-      const filename = `${config.workspaceName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_WP_${dateStr}-${timeStr}`;
+      const filename = `${config.workspaceName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_NWS_${dateStr}-${timeStr}`;
 
       if (config.format === 'all') {
         const files = await generateAllFormats(documentation, config.outputDir, filename);
