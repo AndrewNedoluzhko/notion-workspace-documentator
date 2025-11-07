@@ -521,7 +521,7 @@ export class NumberedFormatter extends BaseFormatter {
     // Add title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('Notion Workspace - Numbered Documentation', margin, yPosition);
+    doc.text(`${data.workspaceName || 'Notion Workspace'} Workspace - Documentation`, margin, yPosition);
     yPosition += 16;
     
     doc.setFontSize(10);
@@ -645,7 +645,7 @@ export class NumberedFormatter extends BaseFormatter {
       new Paragraph({
         children: [
           new TextRun({
-            text: "Notion Workspace - Numbered Documentation",
+            text: `${data.workspaceName || 'Notion Workspace'} Workspace - Documentation`,
             bold: true,
             size: 32,
           }),
