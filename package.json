@@ -27,15 +27,15 @@
     "export",
     "generator"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "AndrewNedoluzhko",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/notion-workspace-documentator.git"
+    "url": "https://github.com/AndrewNedoluzhko/notion-workspace-documentator.git"
   },
-  "homepage": "https://github.com/yourusername/notion-workspace-documentator#readme",
+  "homepage": "https://github.com/AndrewNedoluzhko/notion-workspace-documentator#readme",
   "bugs": {
-    "url": "https://github.com/yourusername/notion-workspace-documentator/issues"
+    "url": "https://github.com/AndrewNedoluzhko/notion-workspace-documentator/issues"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",

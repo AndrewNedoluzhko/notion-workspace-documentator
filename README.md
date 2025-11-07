@@ -55,7 +55,7 @@ $ npm start
 
 1. **Clone this repository:**
 ```bash
-git clone https://github.com/yourusername/notion-workspace-documentator.git
+git clone https://github.com/AndrewNedoluzhko/notion-workspace-documentator.git
 cd notion-workspace-documentator
 ```
 
