@@ -1,7 +1,7 @@
 {
-  "name": "notion-workspace-documentator",
+  "name": "notion-workspace-mapper",
   "version": "1.0.0",
-  "description": "🚀 Interactive CLI tool to automatically document your entire Notion workspace. Generate professional documentation in PDF, DOCX, Markdown, JSON, CSV, and more!",
+  "description": "🚀 Interactive CLI tool to automatically map your entire Notion workspace. Generate professional documentation in PDF, DOCX, Markdown, JSON, CSV, and more!",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -13,7 +13,7 @@
   },
   "keywords": [
     "notion",
-    "documentation",
+    "mapper",
     "workspace",
     "database",
     "api",
@@ -31,11 +31,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AndrewNedoluzhko/notion-workspace-documentator.git"
+    "url": "https://github.com/AndrewNedoluzhko/notion-workspace-mapper.git"
   },
-  "homepage": "https://github.com/AndrewNedoluzhko/notion-workspace-documentator#readme",
+  "homepage": "https://github.com/AndrewNedoluzhko/notion-workspace-mapper#readme",
   "bugs": {
-    "url": "https://github.com/AndrewNedoluzhko/notion-workspace-documentator/issues"
+    "url": "https://github.com/AndrewNedoluzhko/notion-workspace-mapper/issues"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",

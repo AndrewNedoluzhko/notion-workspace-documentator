@@ -1,17 +1,17 @@
-# 🚀 Notion Workspace Documentator
+# 🚀 Notion Workspace Mapper
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)
 ![Notion](https://img.shields.io/badge/Notion-%23000000.svg?style=for-the-badge&logo=notion&logoColor=white)
 
-A powerful, interactive CLI tool to automatically document your entire Notion workspace structure. Generate professional documentation in multiple formats including PDF, DOCX, Markdown, and more!
+A powerful, interactive CLI tool to automatically map your entire Notion workspace structure. Generate professional documentation in multiple formats including PDF, DOCX, Markdown, and more!
 
 ## ✨ Features
 
 - 🎯 **Interactive CLI Interface** - User-friendly prompts for easy operation
 - 📄 **Multi-Format Output** - PDF, DOCX, Markdown, JSON, CSV, Tree structure, and TXT
 - 🎨 **Professional Formatting** - Beautiful, business-ready documentation with proper typography
-- � **Comprehensive Documentation** - Pages, databases, properties, relationships, and schemas
+- 📊 **Comprehensive Mapping** - Pages, databases, properties, relationships, and schemas
 - 🔧 **Flexible Configuration** - Choose workspace name, output formats, and include/exclude options
 - 🚀 **Modern TypeScript** - Built with TypeScript for reliability and maintainability
 - � **Smart File Naming** - Custom workspace-based file naming with timestamps
@@ -21,7 +21,7 @@ A powerful, interactive CLI tool to automatically document your entire Notion wo
 ```bash
 $ npm start
 
-🚀 Welcome to Notion Workspace Documentator!
+🚀 Welcome to Notion Workspace Mapper!
 
 ✔ Enter Workspace Name: My Company Wiki
 ✔ Enter NOTION_API_KEY: ****************************
@@ -55,8 +55,8 @@ $ npm start
 
 1. **Clone this repository:**
 ```bash
-git clone https://github.com/AndrewNedoluzhko/notion-workspace-documentator.git
-cd notion-workspace-documentator
+git clone https://github.com/AndrewNedoluzhko/notion-workspace-mapper.git
+cd notion-workspace-mapper
 ```
 
 2. **Install dependencies:**
@@ -246,7 +246,7 @@ npm start -- --test-connection
 ### Project Structure
 
 ```
-notion-workspace-documentator/
+notion-workspace-mapper/
 ├── 📁 src/
 │   ├── 📄 index.ts              # Main CLI application
 │   ├── 📁 services/

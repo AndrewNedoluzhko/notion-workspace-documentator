@@ -17,8 +17,8 @@ interface InteractiveConfig {
 const program = new Command();
 
 program
-  .name('notion-documentator')
-  .description('Document Notion workspace structure including pages, databases, views, and properties')
+  .name('notion-mapper')
+  .description('Map Notion workspace structure including pages, databases, views, and properties')
   .version('1.0.0');
 
 program
@@ -27,7 +27,7 @@ program
   .option('-o, --output <directory>', 'Output directory', './output')
   .option('--workspace-name <name>', 'Workspace name for file naming')
   .option('--api-key <key>', 'Notion API key')
-  .option('--include-items', 'Include database items (pages) in the documentation')
+  .option('--include-items', 'Include database items (pages) in the mapping')
   .option('--test-connection', 'Test Notion API connection and exit')
   .action(async (options) => {
     try {
@@ -44,7 +44,7 @@ program
         };
       } else {
         // Interactive mode
-        console.log('🚀 Welcome to Notion Workspace Documentator!\n');
+        console.log('🚀 Welcome to Notion Workspace Mapper!\n');
         
         const promptAnswers = await inquirer.prompt([
           {
@@ -93,7 +93,7 @@ program
           {
             type: 'confirm',
             name: 'includeItems',
-            message: 'Include database items (pages) in documentation?',
+            message: 'Include database items (pages) in mapping?',
             default: false
           }
         ]);
@@ -172,7 +172,7 @@ program
       };
 
       // Generate output
-      console.log('📝 Generating documentation...');
+      console.log('📝 Generating mapping...');
       
       // Create filename with workspace name and timestamp
       const timestamp = new Date();
@@ -182,12 +182,12 @@ program
 
       if (config.format === 'all') {
         const files = await generateAllFormats(documentation, config.outputDir, filename);
-        console.log('✅ Documentation generated successfully!');
+        console.log('✅ Mapping generated successfully!');
         console.log('\n📁 Generated files:');
         files.forEach(file => console.log(`   ${file}`));
       } else {
         const filePath = await generateSingleFormat(config.format, documentation, config.outputDir, filename);
-        console.log('✅ Documentation generated successfully!');
+        console.log('✅ Mapping generated successfully!');
         console.log(`\n📁 Generated file: ${filePath}`);
       }
 
@@ -267,9 +267,9 @@ async function generateAllFormats(data: WorkspaceDocumentation, outputDir: strin
 program.addHelpText('after', `
 
 Examples:
-  $ notion-documentator                           # Interactive mode
-  $ notion-documentator --non-interactive -f json --api-key secret_... --workspace-name "My Workspace"
-  $ notion-documentator --test-connection        # Test API connection
+  $ notion-mapper                           # Interactive mode
+  $ notion-mapper --non-interactive -f json --api-key secret_... --workspace-name "My Workspace"
+  $ notion-mapper --test-connection        # Test API connection
 
 Interactive Mode:
   - Enter workspace name for custom file naming

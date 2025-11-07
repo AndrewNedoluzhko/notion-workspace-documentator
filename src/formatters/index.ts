@@ -37,7 +37,7 @@ export class MarkdownFormatter extends BaseFormatter {
   format(data: WorkspaceDocumentation): string {
     const lines: string[] = [];
 
-    lines.push('# Notion Workspace Documentation');
+    lines.push('# Notion Workspace Mapping');
     lines.push('');
     lines.push(`Generated on: ${new Date(data.timestamp).toLocaleString()}`);
     lines.push('');
@@ -521,7 +521,7 @@ export class NumberedFormatter extends BaseFormatter {
     // Add title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${data.workspaceName || 'Notion Workspace'} Workspace - Documentation`, margin, yPosition);
+    doc.text(`${data.workspaceName || 'Notion Workspace'} Workspace - Mapping`, margin, yPosition);
     yPosition += 16;
     
     doc.setFontSize(10);
@@ -645,7 +645,7 @@ export class NumberedFormatter extends BaseFormatter {
       new Paragraph({
         children: [
           new TextRun({
-            text: `${data.workspaceName || 'Notion Workspace'} Workspace - Documentation`,
+            text: `${data.workspaceName || 'Notion Workspace'} Workspace - Mapping`,
             bold: true,
             size: 32,
           }),
