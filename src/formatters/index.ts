@@ -255,16 +255,18 @@ export class TreeFormatter extends BaseFormatter {
         }
       }
 
-      // Create an "items:" section for database pages
-      const itemsNode: TreeNode = {
-        id: `${database.id}-items`,
-        title: 'items:',
-        type: 'items-section',
-        children: [],
-        parentId: database.id
-      };
-      dbNode.children.push(itemsNode);
-      nodeMap.set(itemsNode.id, itemsNode);
+      // Only create an "items:" section for database pages if includeItems is true
+      if (data.includeItems) {
+        const itemsNode: TreeNode = {
+          id: `${database.id}-items`,
+          title: 'items:',
+          type: 'items-section',
+          children: [],
+          parentId: database.id
+        };
+        dbNode.children.push(itemsNode);
+        nodeMap.set(itemsNode.id, itemsNode);
+      }
     }
 
     // Build parent-child relationships for pages and databases
@@ -834,27 +836,29 @@ export class NumberedFormatter extends BaseFormatter {
         }
       }
 
-      // Create an "items:" section for database pages
-      const itemsNode: TreeNode = {
-        id: `${database.id}-items`,
-        title: 'items:',
-        type: 'items-section',
-        children: [],
-        parentId: database.id
-      };
-      dbNode.children.push(itemsNode);
-      nodeMap.set(itemsNode.id, itemsNode);
+      // Create an "items:" section for database pages only when includeItems is true
+      if (data.includeItems) {
+        const itemsNode: TreeNode = {
+          id: `${database.id}-items`,
+          title: 'items:',
+          type: 'items-section',
+          children: [],
+          parentId: database.id
+        };
+        dbNode.children.push(itemsNode);
+        nodeMap.set(itemsNode.id, itemsNode);
 
-      // Add database items (pages that belong to this database) as children of items section
-      const databasePages = data.pages.filter(page => 
-        page.parent.type === 'database_id' && page.parent.id === database.id
-      );
-      
-      for (const dbPage of databasePages) {
-        const existingNode = nodeMap.get(dbPage.id);
-        if (existingNode) {
-          existingNode.parentId = itemsNode.id;
-          itemsNode.children.push(existingNode);
+        // Add database items (pages that belong to this database) as children of items section
+        const databasePages = data.pages.filter(page => 
+          page.parent.type === 'database_id' && page.parent.id === database.id
+        );
+        
+        for (const dbPage of databasePages) {
+          const existingNode = nodeMap.get(dbPage.id);
+          if (existingNode) {
+            existingNode.parentId = itemsNode.id;
+            itemsNode.children.push(existingNode);
+          }
         }
       }
     }
