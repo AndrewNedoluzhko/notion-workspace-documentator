@@ -567,6 +567,18 @@ export class NumberedFormatter extends BaseFormatter {
               fontStyle = 'bold';
               spaceBefore = 10;
               spaceAfter = 5;
+            } else if (level === 3) {
+              // Third level pages (1.1.1): 12pt, bold, 5pt before, 2pt after
+              fontSize = 12;
+              fontStyle = 'bold';
+              spaceBefore = 5;
+              spaceAfter = 2;
+            } else if (level >= 4) {
+              // Fourth level and deeper pages (1.1.1.1+): 10pt, bold, 2pt before, 1pt after
+              fontSize = 10;
+              fontStyle = 'bold';
+              spaceBefore = 2;
+              spaceAfter = 1;
             }
           } else if (text.endsWith(' database')) {
             // Database: 12pt, bold, 5pt before, 2pt after
@@ -698,6 +710,18 @@ export class NumberedFormatter extends BaseFormatter {
               bold = true;
               spaceBefore = 200; // 10pt * 20
               spaceAfter = 100; // 5pt * 20
+            } else if (level === 3) {
+              // Third level pages (1.1.1): 12pt, bold, 5pt before, 2pt after
+              fontSize = 24; // 12pt * 2
+              bold = true;
+              spaceBefore = 100; // 5pt * 20
+              spaceAfter = 40; // 2pt * 20
+            } else if (level >= 4) {
+              // Fourth level and deeper pages (1.1.1.1+): 10pt, bold, 2pt before, 1pt after
+              fontSize = 20; // 10pt * 2
+              bold = true;
+              spaceBefore = 40; // 2pt * 20
+              spaceAfter = 20; // 1pt * 20
             }
           } else if (text.endsWith(' database')) {
             // Database: 12pt, bold, 5pt before, 2pt after
