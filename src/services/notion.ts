@@ -68,39 +68,87 @@ export class NotionService {
           let response;
           
           if (this.apiVersion === '2025-09-03') {
-            // For 2025-09-03, search for data sources and then get their parent databases
-            response = await this.client.search({
-              filter: {
-                property: 'object',
-                value: 'page' // Use 'page' as fallback since 'data_source' might not be supported in SDK yet
-              },
-              start_cursor: cursor,
-              page_size: 100
-            });
+            // For 2025-09-03, the search API changed significantly
+            // We need to use a different approach since direct database search is not supported
             
-            // Also try to search for databases directly
             try {
-              const dbResponse = await this.client.request({
-                path: 'search',
-                method: 'post',
-                body: {
+              // First, try searching for data sources
+              response = await this.client.search({
+                filter: {
+                  property: 'object',
+                  value: 'data_source' as any // Type assertion since SDK doesn't support this yet
+                },
+                start_cursor: cursor,
+                page_size: 100
+              }) as any;
+              
+              // Collect unique database IDs from data sources
+              const databaseIds = new Set<string>();
+              
+              for (const dataSource of response.results || []) {
+                if ('parent' in dataSource && dataSource.parent) {
+                  const parent = dataSource.parent as any;
+                  if (parent.type === 'database' && parent.database_id) {
+                    databaseIds.add(parent.database_id);
+                  }
+                }
+              }
+              
+              // Fetch each unique database
+              for (const dbId of databaseIds) {
+                try {
+                  const database = await this.client.databases.retrieve({ database_id: dbId });
+                  const dbInfo = await this.extractDatabaseInfo(database, includeDataSources);
+                  databases.push(dbInfo);
+                } catch (error) {
+                  console.warn(`Could not fetch database ${dbId}:`, error instanceof Error ? error.message : 'Unknown error');
+                }
+              }
+              
+            } catch (dataSourceError) {
+              console.warn('Could not search data sources, trying pages approach');
+              
+              // Alternative: search for pages and look for database parents
+              try {
+                response = await this.client.search({
                   filter: {
                     property: 'object',
-                    value: 'database'
+                    value: 'page'
                   },
                   start_cursor: cursor,
                   page_size: 100
+                });
+                
+                // Collect database IDs from page parents
+                const databaseIds = new Set<string>();
+                
+                for (const page of response.results || []) {
+                  if ('parent' in page && page.parent) {
+                    const parent = page.parent as any;
+                    if (parent.type === 'database_id' && parent.database_id) {
+                      databaseIds.add(parent.database_id);
+                    }
+                  }
                 }
-              }) as any;
-              
-              for (const database of dbResponse.results || []) {
-                if ('properties' in database) {
-                  const dbInfo = await this.extractDatabaseInfo(database, includeDataSources);
-                  databases.push(dbInfo);
+                
+                // Fetch each unique database
+                for (const dbId of databaseIds) {
+                  try {
+                    const database = await this.client.databases.retrieve({ database_id: dbId });
+                    const dbInfo = await this.extractDatabaseInfo(database, includeDataSources);
+                    // Check if we already have this database
+                    if (!databases.find(db => db.id === dbInfo.id)) {
+                      databases.push(dbInfo);
+                    }
+                  } catch (error) {
+                    console.warn(`Could not fetch database ${dbId}:`, error instanceof Error ? error.message : 'Unknown error');
+                  }
                 }
+                
+              } catch (pageError) {
+                console.error('All search approaches failed for API version 2025-09-03');
+                response = { results: [], next_cursor: null };
               }
-            } catch (error) {
-              console.warn('Could not search databases with new API, falling back to page search');
             }
           } else {
             // For older API versions
