@@ -104,6 +104,39 @@ export class MarkdownFormatter extends BaseFormatter {
           }
           lines.push('');
         }
+
+        if (db.dataSources && db.dataSources.length > 0) {
+          lines.push('#### Views');
+          lines.push('');
+          
+          for (const dataSource of db.dataSources) {
+            const sourceName = dataSource.sourceDatabaseName || 'Unknown Database';
+            lines.push(`##### ${dataSource.title || dataSource.name} (${sourceName} data source)`);
+            lines.push('');
+            lines.push(`- **ID:** \`${dataSource.id}\``);
+            if (dataSource.description) {
+              lines.push(`- **Description:** ${dataSource.description}`);
+            }
+            lines.push(`- **Created:** ${new Date(dataSource.createdTime).toLocaleString()}`);
+            lines.push(`- **Last Edited:** ${new Date(dataSource.lastEditedTime).toLocaleString()}`);
+            lines.push(`- **Source Database:** ${sourceName}`);
+            lines.push('');
+
+            if (dataSource.properties.length > 0) {
+              lines.push('###### Properties');
+              lines.push('');
+              lines.push('| Name | Type | ID | Description | Options |');
+              lines.push('|------|------|----|----|---------|');
+              
+              for (const prop of dataSource.properties) {
+                const options = prop.options ? JSON.stringify(prop.options) : '';
+                const description = prop.description || '';
+                lines.push(`| ${prop.name} | ${prop.type} | \`${prop.id}\` | ${description} | ${options} |`);
+              }
+              lines.push('');
+            }
+          }
+        }
       }
     }
 
@@ -172,6 +205,55 @@ export class CsvFormatter extends BaseFormatter {
           `"${prop.options ? JSON.stringify(prop.options).replace(/"/g, '""') : ''}"`
         ];
         lines.push(row.join(','));
+      }
+    }
+
+    // Add data sources section
+    lines.push('');
+    lines.push('# DATA_SOURCES');
+    lines.push('DatabaseID,DatabaseTitle,DataSourceID,DataSourceName,DataSourceTitle,SourceDatabaseName,Created,LastEdited,Description');
+    
+    for (const db of data.databases) {
+      if (db.dataSources && db.dataSources.length > 0) {
+        for (const ds of db.dataSources) {
+          const row = [
+            `"${db.id}"`,
+            `"${db.title.replace(/"/g, '""')}"`,
+            `"${ds.id}"`,
+            `"${ds.name.replace(/"/g, '""')}"`,
+            `"${(ds.title || '').replace(/"/g, '""')}"`,
+            `"${(ds.sourceDatabaseName || '').replace(/"/g, '""')}"`,
+            `"${ds.createdTime}"`,
+            `"${ds.lastEditedTime}"`,
+            `"${(ds.description || '').replace(/"/g, '""')}"`
+          ];
+          lines.push(row.join(','));
+        }
+      }
+    }
+
+    // Add data source properties section
+    lines.push('');
+    lines.push('# DATA_SOURCE_PROPERTIES');
+    lines.push('DatabaseID,DataSourceID,DataSourceName,PropertyID,PropertyName,PropertyType,Description,Options');
+    
+    for (const db of data.databases) {
+      if (db.dataSources && db.dataSources.length > 0) {
+        for (const ds of db.dataSources) {
+          for (const prop of ds.properties) {
+            const row = [
+              `"${db.id}"`,
+              `"${ds.id}"`,
+              `"${ds.name.replace(/"/g, '""')}"`,
+              `"${prop.id}"`,
+              `"${prop.name.replace(/"/g, '""')}"`,
+              `"${prop.type}"`,
+              `"${(prop.description || '').replace(/"/g, '""')}"`,
+              `"${prop.options ? JSON.stringify(prop.options).replace(/"/g, '""') : ''}"`
+            ];
+            lines.push(row.join(','));
+          }
+        }
       }
     }
 
@@ -255,6 +337,56 @@ export class TreeFormatter extends BaseFormatter {
         }
       }
 
+      // Create a "views:" section if database has data sources
+      if (database.dataSources && database.dataSources.length > 0) {
+        const viewsNode: TreeNode = {
+          id: `${database.id}-views`,
+          title: 'views:',
+          type: 'views-section',
+          children: [],
+          parentId: database.id
+        };
+        dbNode.children.push(viewsNode);
+        nodeMap.set(viewsNode.id, viewsNode);
+
+        // Add data source nodes as children of the views section
+        for (const dataSource of database.dataSources) {
+          const sourceName = dataSource.sourceDatabaseName || 'Unknown Database';
+          const dsNode: TreeNode = {
+            id: dataSource.id,
+            title: `${dataSource.title || dataSource.name} (${sourceName} data source)`,
+            type: 'data-source',
+            children: [],
+            parentId: viewsNode.id,
+            sourceDatabaseName: sourceName
+          };
+          viewsNode.children.push(dsNode);
+          nodeMap.set(dataSource.id, dsNode);
+
+          // Add data source properties as children
+          if (dataSource.properties.length > 0) {
+            // Sort properties: title type first, then others
+            const sortedDSProperties = [...dataSource.properties].sort((a, b) => {
+              if (a.type === 'title' && b.type !== 'title') return -1;
+              if (a.type !== 'title' && b.type === 'title') return 1;
+              return 0;
+            });
+
+            for (const property of sortedDSProperties) {
+              const dsPropNode: TreeNode = {
+                id: `${dataSource.id}-${property.id}`,
+                title: this.formatPropertyTitle(property, data.databases),
+                type: 'property',
+                children: [],
+                parentId: dsNode.id
+              };
+              dsNode.children.push(dsPropNode);
+              nodeMap.set(dsPropNode.id, dsPropNode);
+            }
+          }
+        }
+      }
+
       // Only create an "items:" section for database pages if includeItems is true
       if (data.includeItems) {
         const itemsNode: TreeNode = {
@@ -273,7 +405,7 @@ export class TreeFormatter extends BaseFormatter {
     const rootNodes: TreeNode[] = [];
     
     for (const node of allNodes) {
-      if (node.type === 'property' || node.type === 'properties-section' || node.type === 'items-section') {
+      if (node.type === 'property' || node.type === 'properties-section' || node.type === 'views-section' || node.type === 'data-source' || node.type === 'items-section') {
         continue; // These are already handled above
       }
       

@@ -3,6 +3,8 @@ export interface Config {
   databaseIds?: string[];
   outputFormat: 'json' | 'markdown' | 'csv' | 'tree' | 'numbered' | 'all';
   outputDir: string;
+  apiVersion?: '2022-06-28' | '2025-09-03';
+  includeDataSources?: boolean;
 }
 
 export interface PageInfo {
@@ -26,6 +28,25 @@ export interface DatabaseProperty {
   options?: any;
 }
 
+export interface DataSource {
+  id: string;
+  name: string;
+  title: string;
+  description?: string;
+  properties: DatabaseProperty[];
+  parent: {
+    type: string;
+    database_id: string;
+  };
+  database_parent: {
+    type: string;
+    page_id?: string;
+  };
+  createdTime: string;
+  lastEditedTime: string;
+  sourceDatabaseName?: string; // Name of the database this data source comes from
+}
+
 export interface DatabaseInfo {
   id: string;
   title: string;
@@ -33,7 +54,8 @@ export interface DatabaseInfo {
   description?: string;
   lastEditedTime: string;
   createdTime: string;
-  properties: DatabaseProperty[];
+  properties: DatabaseProperty[]; // The database's own properties
+  dataSources: DataSource[]; // Views from this or other databases
   parent: {
     type: string;
     id?: string;
@@ -56,9 +78,10 @@ export interface WorkspaceDocumentation {
 export interface TreeNode {
   id: string;
   title: string;
-  type: 'page' | 'database' | 'property' | 'properties-section' | 'items-section';
+  type: 'page' | 'database' | 'property' | 'properties-section' | 'views-section' | 'data-source' | 'items-section';
   children: TreeNode[];
   parentId?: string;
+  sourceDatabaseName?: string; // For data sources, name of source database
 }
 
 export interface WorkspaceTree {

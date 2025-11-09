@@ -11,6 +11,8 @@ interface InteractiveConfig {
   notionApiKey: string;
   format: string;
   includeItems: boolean;
+  includeDataSources: boolean;
+  apiVersion: '2022-06-28' | '2025-09-03';
   outputDir: string;
 }
 
@@ -28,6 +30,8 @@ program
   .option('--workspace-name <name>', 'Workspace name for file naming')
   .option('--api-key <key>', 'Notion API key')
   .option('--include-items', 'Include database items (pages) in the mapping')
+  .option('--include-data-sources', 'Include database views/data sources (requires API version 2025-09-03)')
+  .option('--api-version <version>', 'Notion API version: 2022-06-28 or 2025-09-03', '2025-09-03')
   .option('--test-connection', 'Test Notion API connection and exit')
   .action(async (options) => {
     try {
@@ -35,11 +39,14 @@ program
 
       if (options.nonInteractive) {
         // Use CLI options
+        const apiVersion = (options.apiVersion === '2022-06-28') ? '2022-06-28' : '2025-09-03';
         config = {
           workspaceName: options.workspaceName || 'Notion Workspace',
           notionApiKey: options.apiKey || process.env.NOTION_API_KEY || '',
           format: options.format || 'markdown',
           includeItems: options.includeItems || false,
+          includeDataSources: options.includeDataSources || false,
+          apiVersion,
           outputDir: options.output || './output'
         };
       } else {
@@ -95,11 +102,29 @@ program
             name: 'includeItems',
             message: 'Include database items (pages) in mapping?',
             default: false
+          },
+          {
+            type: 'list',
+            name: 'apiVersion',
+            message: 'Choose Notion API version:',
+            choices: [
+              { name: '2025-09-03 - Latest with data sources/views support', value: '2025-09-03' },
+              { name: '2022-06-28 - Legacy version (basic database support only)', value: '2022-06-28' }
+            ],
+            default: '2025-09-03'
+          },
+          {
+            type: 'confirm',
+            name: 'includeDataSources',
+            message: 'Include database views/data sources? (only available with API 2025-09-03)',
+            default: true,
+            when: (answers: any) => answers.apiVersion === '2025-09-03'
           }
         ]);
 
         config = {
           ...promptAnswers,
+          includeDataSources: promptAnswers.includeDataSources || false,
           outputDir: './output'
         };
       }
@@ -114,10 +139,12 @@ program
       console.log(`   Workspace: ${config.workspaceName}`);
       console.log(`   Format: ${config.format}`);
       console.log(`   Include Items: ${config.includeItems ? 'Yes' : 'No'}`);
+      console.log(`   Include Data Sources: ${config.includeDataSources ? 'Yes' : 'No'}`);
+      console.log(`   API Version: ${config.apiVersion}`);
       console.log(`   Output Directory: ${config.outputDir}\n`);
 
       // Initialize Notion service
-      const notionService = new NotionService(config.notionApiKey);
+      const notionService = new NotionService(config.notionApiKey, config.apiVersion);
 
       // Test connection if requested
       if (options.testConnection) {
@@ -148,7 +175,7 @@ program
       console.log(`   Found ${pages.length} pages`);
 
       console.log('🗄️  Fetching databases...');
-      const databases = await notionService.getAllDatabases();
+      const databases = await notionService.getAllDatabases(undefined, config.includeDataSources);
       console.log(`   Found ${databases.length} databases`);
 
       const totalProperties = databases.reduce((sum, db) => sum + db.properties.length, 0);

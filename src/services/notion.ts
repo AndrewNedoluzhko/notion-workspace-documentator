@@ -1,12 +1,15 @@
 import { Client } from '@notionhq/client';
-import { PageInfo, DatabaseInfo, DatabaseProperty } from '../types/index.js';
+import { PageInfo, DatabaseInfo, DatabaseProperty, DataSource } from '../types/index.js';
 
 export class NotionService {
   private client: Client;
+  private apiVersion: '2022-06-28' | '2025-09-03';
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, apiVersion: '2022-06-28' | '2025-09-03' = '2025-09-03') {
+    this.apiVersion = apiVersion;
     this.client = new Client({
       auth: apiKey,
+      notionVersion: apiVersion,
     });
   }
 
@@ -42,7 +45,7 @@ export class NotionService {
     }
   }
 
-  async getAllDatabases(specificIds?: string[]): Promise<DatabaseInfo[]> {
+  async getAllDatabases(specificIds?: string[], includeDataSources: boolean = true): Promise<DatabaseInfo[]> {
     const databases: DatabaseInfo[] = [];
 
     try {
@@ -51,7 +54,7 @@ export class NotionService {
         for (const id of specificIds) {
           try {
             const database = await this.client.databases.retrieve({ database_id: id });
-            const dbInfo = this.extractDatabaseInfo(database);
+            const dbInfo = await this.extractDatabaseInfo(database, includeDataSources);
             databases.push(dbInfo);
           } catch (error) {
             console.warn(`Could not fetch database ${id}:`, error instanceof Error ? error.message : 'Unknown error');
@@ -62,19 +65,59 @@ export class NotionService {
         let cursor: string | undefined;
 
         do {
-          const response = await this.client.search({
-            filter: {
-              property: 'object',
-              value: 'database'
-            },
-            start_cursor: cursor,
-            page_size: 100
-          });
-
-          for (const database of response.results) {
-            if ('properties' in database) {
-              const dbInfo = this.extractDatabaseInfo(database);
-              databases.push(dbInfo);
+          let response;
+          
+          if (this.apiVersion === '2025-09-03') {
+            // For 2025-09-03, search for data sources and then get their parent databases
+            response = await this.client.search({
+              filter: {
+                property: 'object',
+                value: 'page' // Use 'page' as fallback since 'data_source' might not be supported in SDK yet
+              },
+              start_cursor: cursor,
+              page_size: 100
+            });
+            
+            // Also try to search for databases directly
+            try {
+              const dbResponse = await this.client.request({
+                path: 'search',
+                method: 'post',
+                body: {
+                  filter: {
+                    property: 'object',
+                    value: 'database'
+                  },
+                  start_cursor: cursor,
+                  page_size: 100
+                }
+              }) as any;
+              
+              for (const database of dbResponse.results || []) {
+                if ('properties' in database) {
+                  const dbInfo = await this.extractDatabaseInfo(database, includeDataSources);
+                  databases.push(dbInfo);
+                }
+              }
+            } catch (error) {
+              console.warn('Could not search databases with new API, falling back to page search');
+            }
+          } else {
+            // For older API versions
+            response = await this.client.search({
+              filter: {
+                property: 'object',
+                value: 'database'
+              },
+              start_cursor: cursor,
+              page_size: 100
+            });
+            
+            for (const database of response.results) {
+              if ('properties' in database) {
+                const dbInfo = await this.extractDatabaseInfo(database, includeDataSources);
+                databases.push(dbInfo);
+              }
             }
           }
 
@@ -106,19 +149,28 @@ export class NotionService {
     };
   }
 
-  private extractDatabaseInfo(database: any): DatabaseInfo {
+  private async extractDatabaseInfo(database: any, includeDataSources: boolean = true): Promise<DatabaseInfo> {
     const title = this.extractTitle(database.title);
     const properties: DatabaseProperty[] = [];
 
-    for (const [key, value] of Object.entries(database.properties)) {
-      const prop = value as any;
-      properties.push({
-        id: prop.id,
-        name: key,
-        type: prop.type,
-        description: prop.description || undefined,
-        options: this.extractPropertyOptions(prop)
-      });
+    // Extract database properties (for older API or base properties)
+    if (database.properties) {
+      for (const [key, value] of Object.entries(database.properties)) {
+        const prop = value as any;
+        properties.push({
+          id: prop.id,
+          name: key,
+          type: prop.type,
+          description: prop.description || undefined,
+          options: this.extractPropertyOptions(prop)
+        });
+      }
+    }
+
+    // Fetch data sources if using new API and requested
+    let dataSources: DataSource[] = [];
+    if (includeDataSources && this.apiVersion === '2025-09-03') {
+      dataSources = await this.getDataSourcesForDatabase(database.id);
     }
 
     return {
@@ -129,6 +181,7 @@ export class NotionService {
       lastEditedTime: database.last_edited_time,
       createdTime: database.created_time,
       properties,
+      dataSources,
       parent: {
         type: database.parent?.type || 'unknown',
         id: database.parent?.page_id || database.parent?.workspace
@@ -158,6 +211,87 @@ export class NotionService {
     }
 
     return '';
+  }
+
+  private async getDataSourcesForDatabase(databaseId: string): Promise<DataSource[]> {
+    const dataSources: DataSource[] = [];
+
+    try {
+      if (this.apiVersion === '2025-09-03') {
+        // Get database to see data_sources array
+        const database = await this.client.databases.retrieve({ database_id: databaseId }) as any;
+        
+        if (database.data_sources && Array.isArray(database.data_sources)) {
+          for (const dsRef of database.data_sources) {
+            try {
+              // Use custom request for data source API since SDK might not support it yet
+              const dataSourceResponse = await this.client.request({
+                path: `data_sources/${dsRef.id}`,
+                method: 'get'
+              }) as any;
+              
+              const dataSource = await this.extractDataSourceInfo(dataSourceResponse, dsRef.name);
+              dataSources.push(dataSource);
+            } catch (error) {
+              console.warn(`Could not fetch data source ${dsRef.id}:`, error instanceof Error ? error.message : 'Unknown error');
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Could not fetch data sources for database ${databaseId}:`, error instanceof Error ? error.message : 'Unknown error');
+    }
+
+    return dataSources;
+  }
+
+  private async extractDataSourceInfo(dataSource: any, sourceName: string): Promise<DataSource> {
+    const title = this.extractTitle(dataSource.title) || sourceName;
+    const properties: DatabaseProperty[] = [];
+
+    // Extract properties from data source
+    if (dataSource.properties) {
+      for (const [key, value] of Object.entries(dataSource.properties)) {
+        const prop = value as any;
+        properties.push({
+          id: prop.id,
+          name: key,
+          type: prop.type,
+          description: prop.description || undefined,
+          options: this.extractPropertyOptions(prop)
+        });
+      }
+    }
+
+    // Try to get the source database name
+    let sourceDatabaseName = '';
+    if (dataSource.database_parent && dataSource.database_parent.page_id) {
+      try {
+        // This is a simplified approach - in reality we'd need to map database IDs to names
+        sourceDatabaseName = sourceName; // Use the name from the reference for now
+      } catch (error) {
+        // Ignore errors when fetching source database name
+      }
+    }
+
+    return {
+      id: dataSource.id,
+      name: sourceName,
+      title,
+      description: dataSource.description?.[0]?.plain_text || undefined,
+      properties,
+      parent: {
+        type: dataSource.parent?.type || 'database',
+        database_id: dataSource.parent?.database_id || ''
+      },
+      database_parent: {
+        type: dataSource.database_parent?.type || 'page',
+        page_id: dataSource.database_parent?.page_id
+      },
+      createdTime: dataSource.created_time,
+      lastEditedTime: dataSource.last_edited_time,
+      sourceDatabaseName
+    };
   }
 
   private extractPropertyOptions(property: any): any {
