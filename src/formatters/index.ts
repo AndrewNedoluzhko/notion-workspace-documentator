@@ -47,96 +47,22 @@ export class MarkdownFormatter extends BaseFormatter {
     lines.push('');
     lines.push(`- **Total Pages:** ${data.summary.totalPages}`);
     lines.push(`- **Total Databases:** ${data.summary.totalDatabases}`);
-    lines.push(`- **Total Properties:** ${data.summary.totalProperties}`);
+    lines.push(`- **Total Properties:** ${data.includeSchema ? data.summary.totalProperties : 'not included'}`);
     lines.push('');
 
-    // Pages section
-    if (data.pages.length > 0) {
-      lines.push('## Pages');
-      lines.push('');
-      
-      for (const page of data.pages) {
-        lines.push(`### ${page.title}`);
-        lines.push('');
-        lines.push(`- **ID:** \`${page.id}\``);
-        lines.push(`- **URL:** [Open in Notion](${page.url})`);
-        lines.push(`- **Created:** ${new Date(page.createdTime).toLocaleString()}`);
-        lines.push(`- **Last Edited:** ${new Date(page.lastEditedTime).toLocaleString()}`);
-        lines.push(`- **Parent Type:** ${page.parent.type}`);
-        if (page.parent.id) {
-          lines.push(`- **Parent ID:** \`${page.parent.id}\``);
-        }
-        lines.push('');
-      }
-    }
-
-    // Databases section
-    if (data.databases.length > 0) {
-      lines.push('## Databases');
-      lines.push('');
-
-      for (const db of data.databases) {
-        lines.push(`### ${db.title}`);
-        lines.push('');
-        lines.push(`- **ID:** \`${db.id}\``);
-        lines.push(`- **URL:** [Open in Notion](${db.url})`);
-        if (db.description) {
-          lines.push(`- **Description:** ${db.description}`);
-        }
-        lines.push(`- **Created:** ${new Date(db.createdTime).toLocaleString()}`);
-        lines.push(`- **Last Edited:** ${new Date(db.lastEditedTime).toLocaleString()}`);
-        lines.push(`- **Parent Type:** ${db.parent.type}`);
-        if (db.parent.id) {
-          lines.push(`- **Parent ID:** \`${db.parent.id}\``);
-        }
-        lines.push('');
-
-        if (db.properties.length > 0) {
-          lines.push('#### Properties');
-          lines.push('');
-          lines.push('| Name | Type | ID | Description | Options |');
-          lines.push('|------|------|----|----|---------|');
-          
-          for (const prop of db.properties) {
-            const options = prop.options ? JSON.stringify(prop.options) : '';
-            const description = prop.description || '';
-            lines.push(`| ${prop.name} | ${prop.type} | \`${prop.id}\` | ${description} | ${options} |`);
-          }
-          lines.push('');
-        }
-
-        if (db.dataSources && db.dataSources.length > 0) {
-          lines.push('#### Views');
-          lines.push('');
-          
-          for (const dataSource of db.dataSources) {
-            const sourceName = dataSource.sourceDatabaseName || 'Unknown Database';
-            lines.push(`##### ${dataSource.title || dataSource.name} (${sourceName} data source)`);
-            lines.push('');
-            lines.push(`- **ID:** \`${dataSource.id}\``);
-            if (dataSource.description) {
-              lines.push(`- **Description:** ${dataSource.description}`);
-            }
-            lines.push(`- **Created:** ${new Date(dataSource.createdTime).toLocaleString()}`);
-            lines.push(`- **Last Edited:** ${new Date(dataSource.lastEditedTime).toLocaleString()}`);
-            lines.push(`- **Source Database:** ${sourceName}`);
-            lines.push('');
-
-            if (dataSource.properties.length > 0) {
-              lines.push('###### Properties');
-              lines.push('');
-              lines.push('| Name | Type | ID | Description | Options |');
-              lines.push('|------|------|----|----|---------|');
-              
-              for (const prop of dataSource.properties) {
-                const options = prop.options ? JSON.stringify(prop.options) : '';
-                const description = prop.description || '';
-                lines.push(`| ${prop.name} | ${prop.type} | \`${prop.id}\` | ${description} | ${options} |`);
-              }
-              lines.push('');
-            }
-          }
-        }
+    // Build tree structure
+    const tree = this.buildTree(data);
+    
+    // Render hierarchy
+    lines.push('## Workspace Structure');
+    lines.push('');
+    
+    if (tree.rootNodes.length === 0) {
+      lines.push('No accessible content found.');
+      lines.push('Make sure your pages and databases are shared with the integration.');
+    } else {
+      for (const rootNode of tree.rootNodes) {
+        this.renderNodeMarkdown(rootNode, 1, lines, data);
       }
     }
 
@@ -145,6 +71,347 @@ export class MarkdownFormatter extends BaseFormatter {
 
   getFileExtension(): string {
     return 'md';
+  }
+
+  private buildTree(data: WorkspaceDocumentation): WorkspaceTree {
+    const allNodes: TreeNode[] = [];
+    const nodeMap = new Map<string, TreeNode>();
+
+    // Determine if we're using new API with data sources
+    const hasDataSources = data.databases.some(db => db.dataSources && db.dataSources.length > 0);
+
+    // Create nodes for pages
+    for (const page of data.pages) {
+      // For NEW API: Skip database/data source pages (they come from dataSource.pages)
+      // For OLD API: Keep database pages (they'll be added to Items section)
+      if (hasDataSources && (page.parent.type === 'database_id' || page.parent.type === 'data_source_id')) {
+        continue;
+      }
+      
+      const node: TreeNode = {
+        id: page.id,
+        title: `${page.title || 'Untitled Page'} page`,
+        type: 'page',
+        children: [],
+        parentId: page.parent.id
+      };
+      allNodes.push(node);
+      nodeMap.set(page.id, node);
+    }
+
+    // Create nodes for databases and their data sources
+    for (const database of data.databases) {
+      const dbNode: TreeNode = {
+        id: database.id,
+        title: `${database.title || 'Untitled Database'} database`,
+        type: 'database',
+        children: [],
+        parentId: database.parent.id
+      };
+      allNodes.push(dbNode);
+      nodeMap.set(database.id, dbNode);
+
+      // NEW API 2025-09-03: Structure with data sources
+      if (database.dataSources && database.dataSources.length > 0) {
+        // Each data source gets its own section under the database
+        for (const dataSource of database.dataSources) {
+          const dsNode: TreeNode = {
+            id: dataSource.id,
+            title: `${dataSource.title || dataSource.name} data source`,
+            type: 'data-source',
+            children: [],
+            parentId: database.id
+          };
+          dbNode.children.push(dsNode);
+          nodeMap.set(dataSource.id, dsNode);
+
+          // Add Properties section under data source
+          if (data.includeSchema && dataSource.properties.length > 0) {
+            const propertiesNode: TreeNode = {
+              id: `${dataSource.id}-properties`,
+              title: 'Properties',
+              type: 'properties-section',
+              children: [],
+              parentId: dataSource.id
+            };
+            dsNode.children.push(propertiesNode);
+            nodeMap.set(propertiesNode.id, propertiesNode);
+
+            // Reverse the properties array to match API order requirement
+            const reversedProperties = [...dataSource.properties].reverse();
+
+            // Add property nodes as children of the properties section
+            for (const property of reversedProperties) {
+              const propNode: TreeNode = {
+                id: `${dataSource.id}-${property.id}`,
+                title: this.formatPropertyTitle(property, data.databases),
+                type: 'property',
+                children: [],
+                parentId: propertiesNode.id
+              };
+              propertiesNode.children.push(propNode);
+              nodeMap.set(propNode.id, propNode);
+            }
+          }
+
+          // Add Pages section under data source if includeItems is true AND pages exist
+          if (data.includeItems && dataSource.pages && dataSource.pages.length > 0) {
+            const pagesNode: TreeNode = {
+              id: `${dataSource.id}-pages`,
+              title: 'Data source pages',
+              type: 'pages-section',
+              children: [],
+              parentId: dataSource.id
+            };
+            dsNode.children.push(pagesNode);
+            nodeMap.set(pagesNode.id, pagesNode);
+
+            // Add pages from the data source's pages array (fetched from new API)
+            for (const dsPage of dataSource.pages) {
+              const pageNode: TreeNode = {
+                id: dsPage.id,
+                title: `${dsPage.title || 'Untitled Page'} page`,
+                type: 'page',
+                children: [],
+                parentId: pagesNode.id
+              };
+              pagesNode.children.push(pageNode);
+              nodeMap.set(pageNode.id, pageNode);
+              allNodes.push(pageNode);
+            }
+          }
+        }
+      } 
+      // OLD API: Fallback to old structure if no data sources
+      else if (data.includeSchema && database.properties.length > 0) {
+        const propertiesNode: TreeNode = {
+          id: `${database.id}-properties`,
+          title: 'Properties',
+          type: 'properties-section',
+          children: [],
+          parentId: database.id
+        };
+        dbNode.children.push(propertiesNode);
+        nodeMap.set(propertiesNode.id, propertiesNode);
+
+        // Reverse the properties array for consistency
+        const reversedProperties = [...database.properties].reverse();
+
+        // Add property nodes as children of the properties section
+        for (const property of reversedProperties) {
+          const propNode: TreeNode = {
+            id: property.id,
+            title: this.formatPropertyTitle(property, data.databases),
+            type: 'property',
+            children: [],
+            parentId: propertiesNode.id
+          };
+          propertiesNode.children.push(propNode);
+          nodeMap.set(property.id, propNode);
+        }
+
+        // Create an "items:" section for old API
+        if (data.includeItems) {
+          const itemsNode: TreeNode = {
+            id: `${database.id}-items`,
+            title: 'Database pages',
+            type: 'items-section',
+            children: [],
+            parentId: database.id
+          };
+          dbNode.children.push(itemsNode);
+          nodeMap.set(itemsNode.id, itemsNode);
+
+          // Add database items (pages that belong to this database)
+          const databasePages = data.pages.filter(page => 
+            page.parent.type === 'database_id' && page.parent.id === database.id
+          );
+          
+          for (const dbPage of databasePages) {
+            const existingNode = nodeMap.get(dbPage.id);
+            if (existingNode) {
+              existingNode.parentId = itemsNode.id;
+              itemsNode.children.push(existingNode);
+            }
+          }
+        }
+      }
+    }
+
+    // Build parent-child relationships
+    const rootNodes: TreeNode[] = [];
+    
+    for (const node of allNodes) {
+      if (!node.parentId) {
+        rootNodes.push(node);
+      } else {
+        const parent = nodeMap.get(node.parentId);
+        if (parent && !parent.children.includes(node)) {
+          parent.children.push(node);
+        } else if (!parent) {
+          // If parent not found, treat as root
+          rootNodes.push(node);
+        }
+      }
+    }
+
+    // Reverse the order of root nodes (first level)
+    rootNodes.reverse();
+
+    return { 
+      timestamp: data.timestamp,
+      rootNodes, 
+      summary: data.summary,
+      includeSchema: data.includeSchema,
+      includeItems: data.includeItems
+    };
+  }
+
+  private formatPropertyTitle(property: DatabaseProperty, databases: DatabaseInfo[]): string {
+    let parts: string[] = [];
+    
+    // Property ID
+    parts.push(property.id);
+    
+    // Property type
+    parts.push(property.type);
+    
+    // Options based on type
+    if (property.options) {
+      if (property.type === 'select' || property.type === 'multi_select' || property.type === 'status') {
+        const optionNames = property.options.map((opt: any) => opt.name);
+        if (optionNames.length > 0) {
+          parts.push(`[${optionNames.join(', ')}]`);
+        } else {
+          parts.push('[]');
+        }
+      } else if (property.type === 'relation') {
+        if (property.options.database_id) {
+          const relatedDb = databases.find(db => db.id === property.options.database_id);
+          const dbName = relatedDb ? relatedDb.title : property.options.database_id;
+          
+          let relationDetails = `→ ${dbName}`;
+          
+          let constraints = [];
+          
+          if (property.options.dual_property) {
+            constraints.push('two-way');
+          } else {
+            constraints.push('one-way');
+          }
+          
+          if (property.options.single_property !== undefined) {
+            constraints.push('limit: 1 page');
+          } else {
+            constraints.push('no limit');
+          }
+          
+          relationDetails += ` (${constraints.join(', ')})`;
+          parts.push(relationDetails);
+        } else {
+          parts.push('[]');
+        }
+      } else if (property.type === 'formula') {
+        if (property.options.expression) {
+          let expression = property.options.expression.toString();
+          expression = expression.replace(/\{\{notion:block_property:[^}]+\}\}/g, '[Property]');
+          expression = expression.replace(/\s+/g, ' ').trim();
+          parts.push(`[${expression}]`);
+        } else {
+          parts.push('[]');
+        }
+      } else {
+        parts.push(JSON.stringify(property.options));
+      }
+    } else {
+      parts.push('[]');
+    }
+    
+    // Description
+    if (property.description) {
+      parts.push(property.description);
+    }
+    
+    // Return format: "name|id|type|options|description" (we'll parse this in renderNodeMarkdown)
+    return `${property.name}|${parts.join(', ')}`;
+  }
+
+  private renderNodeMarkdown(node: TreeNode, level: number, lines: string[], data: WorkspaceDocumentation): void {
+    // Generate heading based on level (# for 1, ## for 2, etc.)
+    const heading = '#'.repeat(level);
+    
+    // Special handling for different node types
+    if (node.type === 'page') {
+      lines.push(`${heading} ${node.title}`);
+      
+      // Find page details from data
+      const pageData = data.pages.find(p => p.id === node.id);
+      if (pageData) {
+        lines.push(`- **ID:** \`${pageData.id}\``);
+        lines.push(`- **URL:** ${pageData.url}`);
+        lines.push(`- **Created:** ${new Date(pageData.createdTime).toLocaleString()}`);
+        lines.push(`- **Last Edited:** ${new Date(pageData.lastEditedTime).toLocaleString()}`);
+        lines.push(`- **Parent Type:** ${pageData.parent.type}`);
+        if (pageData.parent.id) {
+          lines.push(`- **Parent ID:** \`${pageData.parent.id}\``);
+        }
+      }
+      lines.push('');
+    } else if (node.type === 'database') {
+      lines.push(`${heading} ${node.title}`);
+      
+      // Find database details from data
+      const dbData = data.databases.find(db => db.id === node.id);
+      if (dbData) {
+        lines.push(`- **ID:** \`${dbData.id}\``);
+        lines.push(`- **URL:** ${dbData.url}`);
+        lines.push(`- **Created:** ${new Date(dbData.createdTime).toLocaleString()}`);
+        lines.push(`- **Last Edited:** ${new Date(dbData.lastEditedTime).toLocaleString()}`);
+        lines.push(`- **Parent Type:** ${dbData.parent.type}`);
+        if (dbData.parent.id) {
+          lines.push(`- **Parent ID:** \`${dbData.parent.id}\``);
+        }
+      }
+      lines.push('');
+    } else if (node.type === 'data-source') {
+      lines.push(`${heading} ${node.title}`);
+      
+      // Find data source details from database data
+      for (const db of data.databases) {
+        const dsData = db.dataSources?.find(ds => ds.id === node.id);
+        if (dsData) {
+          lines.push(`- **ID:** \`${dsData.id}\``);
+          lines.push(`- **URL:** Not available for data sources`);
+          lines.push(`- **Created:** ${new Date(dsData.createdTime).toLocaleString()}`);
+          lines.push(`- **Last Edited:** ${new Date(dsData.lastEditedTime).toLocaleString()}`);
+          lines.push(`- **Parent Type:** ${dsData.parent.type}`);
+          lines.push(`- **Parent ID:** \`${dsData.parent.database_id}\``);
+          if (dsData.description) {
+            lines.push(`- **Description:** ${dsData.description}`);
+          }
+          break;
+        }
+      }
+      lines.push('');
+    } else if (node.type === 'properties-section' || node.type === 'pages-section' || node.type === 'items-section') {
+      // Section headers
+      lines.push(`${heading} ${node.title}`);
+      lines.push('');
+    } else if (node.type === 'property') {
+      // Properties are rendered as bullet list items with formatted details
+      // Parse the title format: "name|id, type, options, description"
+      const parts = node.title.split('|');
+      const propertyName = parts[0];
+      const propertyDetails = parts.length > 1 ? parts[1] : '';
+      
+      lines.push(`- **${propertyName}:** ${propertyDetails}`);
+      return; // Don't add extra newline or process children for properties
+    }
+    
+    // Recursively render children with incremented level
+    for (const child of node.children) {
+      this.renderNodeMarkdown(child, level + 1, lines, data);
+    }
   }
 }
 
@@ -337,19 +604,9 @@ export class TreeFormatter extends BaseFormatter {
         }
       }
 
-      // Create a "views:" section if database has data sources
+      // Add data sources as direct children of database (no views: wrapper)
       if (database.dataSources && database.dataSources.length > 0) {
-        const viewsNode: TreeNode = {
-          id: `${database.id}-views`,
-          title: 'views:',
-          type: 'views-section',
-          children: [],
-          parentId: database.id
-        };
-        dbNode.children.push(viewsNode);
-        nodeMap.set(viewsNode.id, viewsNode);
-
-        // Add data source nodes as children of the views section
+        // Add data source nodes as children of the database
         for (const dataSource of database.dataSources) {
           const sourceName = dataSource.sourceDatabaseName || 'Unknown Database';
           const dsNode: TreeNode = {
@@ -357,10 +614,10 @@ export class TreeFormatter extends BaseFormatter {
             title: `${dataSource.title || dataSource.name} (${sourceName} data source)`,
             type: 'data-source',
             children: [],
-            parentId: viewsNode.id,
+            parentId: database.id,
             sourceDatabaseName: sourceName
           };
-          viewsNode.children.push(dsNode);
+          dbNode.children.push(dsNode);
           nodeMap.set(dataSource.id, dsNode);
 
           // Add data source properties as children
@@ -384,6 +641,33 @@ export class TreeFormatter extends BaseFormatter {
               nodeMap.set(dsPropNode.id, dsPropNode);
             }
           }
+
+          // Add Pages section under data source if includeItems is true AND pages exist
+          if (data.includeItems && dataSource.pages && dataSource.pages.length > 0) {
+            const pagesNode: TreeNode = {
+              id: `${dataSource.id}-pages`,
+              title: 'Data source pages',
+              type: 'pages-section',
+              children: [],
+              parentId: dataSource.id
+            };
+            dsNode.children.push(pagesNode);
+            nodeMap.set(pagesNode.id, pagesNode);
+
+            // Add pages from the data source's pages array (fetched from new API)
+            for (const dsPage of dataSource.pages) {
+              const pageNode: TreeNode = {
+                id: dsPage.id,
+                title: `${dsPage.title || 'Untitled Page'} page`,
+                type: 'page',
+                children: [],
+                parentId: pagesNode.id
+              };
+              pagesNode.children.push(pageNode);
+              nodeMap.set(pageNode.id, pageNode);
+              allNodes.push(pageNode);
+            }
+          }
         }
       }
 
@@ -405,7 +689,7 @@ export class TreeFormatter extends BaseFormatter {
     const rootNodes: TreeNode[] = [];
     
     for (const node of allNodes) {
-      if (node.type === 'property' || node.type === 'properties-section' || node.type === 'views-section' || node.type === 'data-source' || node.type === 'items-section') {
+      if (node.type === 'property' || node.type === 'properties-section' || node.type === 'views-section' || node.type === 'data-source' || node.type === 'items-section' || node.type === 'pages-section') {
         continue; // These are already handled above
       }
       
@@ -432,11 +716,16 @@ export class TreeFormatter extends BaseFormatter {
 
     // Sort children by title
     this.sortTreeNodes(rootNodes);
+    
+    // Reverse the order of root nodes (first level)
+    rootNodes.reverse();
 
     return {
       timestamp: data.timestamp,
       rootNodes,
-      summary: data.summary
+      summary: data.summary,
+      includeSchema: data.includeSchema,
+      includeItems: data.includeItems
     };
   }
 
@@ -543,7 +832,7 @@ export class TreeFormatter extends BaseFormatter {
     lines.push('## Summary');
     lines.push(`Pages: ${tree.summary.totalPages}`);
     lines.push(`Databases: ${tree.summary.totalDatabases}`);
-    lines.push(`Properties: ${tree.summary.totalProperties}`);
+    lines.push(`Properties: ${tree.includeSchema ? tree.summary.totalProperties : 'not included'}`);
     lines.push('');
     lines.push('## Workspace Structure');
     lines.push('');
@@ -588,6 +877,10 @@ export class TreeFormatter extends BaseFormatter {
         return '📋';
       case 'items-section':
         return '📁';
+      case 'pages-section':
+        return '📁';
+      case 'data-source':
+        return '🔗';
       default:
         return '📁';
     }
@@ -651,7 +944,7 @@ export class NumberedFormatter extends BaseFormatter {
     let yPosition = margin;
     
     // Add title
-    doc.setFontSize(16);
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.text(`${data.workspaceName || 'Notion Workspace'} Workspace - Mapping`, margin, yPosition);
     yPosition += 16;
@@ -662,10 +955,15 @@ export class NumberedFormatter extends BaseFormatter {
     yPosition += 12;
     
     // Add summary
-    doc.text(`Pages: ${data.summary.totalPages} | Databases: ${data.summary.totalDatabases} | Properties: ${data.summary.totalProperties}`, margin, yPosition);
+    doc.text(`Pages: ${data.summary.totalPages} | Databases: ${data.summary.totalDatabases} | Properties: ${data.includeSchema ? data.summary.totalProperties : 'not included'}`, margin, yPosition);
     yPosition += 16;
     
     // Add content with specific formatting
+    let insidePagesSection = false;
+    let pagesSectionLevel = 0;
+    let insidePropertiesSection = false;
+    let propertiesSectionLevel = 0;
+    
     for (const line of lines) {
       if (yPosition > pageHeight - margin) {
         doc.addPage();
@@ -680,6 +978,24 @@ export class NumberedFormatter extends BaseFormatter {
           let text = originalText;
           const level = number.split('.').length;
           
+          // Track when we enter/exit Database pages or Data source pages sections
+          if (text === 'Database pages' || text === 'Data source pages') {
+            insidePagesSection = true;
+            pagesSectionLevel = level;
+          } else if (insidePagesSection && level <= pagesSectionLevel) {
+            // We've exited the pages section
+            insidePagesSection = false;
+          }
+          
+          // Track when we enter/exit Properties section
+          if (text === 'Properties') {
+            insidePropertiesSection = true;
+            propertiesSectionLevel = level;
+          } else if (insidePropertiesSection && level <= propertiesSectionLevel && text !== 'Properties') {
+            // We've exited the properties section
+            insidePropertiesSection = false;
+          }
+          
           // Determine formatting based on content type and level
           let fontSize = 8; // default
           let fontStyle = 'normal';
@@ -687,50 +1003,93 @@ export class NumberedFormatter extends BaseFormatter {
           let spaceAfter = 0;
           
           if (text.endsWith(' page')) {
-            if (level === 1) {
-              // First level pages: 20pt, bold, 10pt before, 5pt after
+            // Check if this is a page inside Database pages or Data source pages section
+            if (insidePagesSection) {
+              // Pages inside Database/Data source pages: 8pt, normal
+              fontSize = 8;
+              fontStyle = 'normal';
+              spaceBefore = 1;
+              spaceAfter = 0;
+            } else if (level === 1) {
+              // First level pages: 20pt, bold, 
               fontSize = 20;
               fontStyle = 'bold';
-              spaceBefore = 10;
-              spaceAfter = 5;
+              spaceBefore = 3;
+              spaceAfter = 1;
             } else if (level === 2) {
-              // Second level pages: 14pt, bold, 10pt before, 5pt after
+              // Second level pages: 14pt, bold, 
               fontSize = 14;
               fontStyle = 'bold';
-              spaceBefore = 10;
-              spaceAfter = 5;
+              spaceBefore = 3;
+              spaceAfter = 1;
             } else if (level === 3) {
-              // Third level pages (1.1.1): 12pt, bold, 5pt before, 2pt after
+              // Third level pages (1.1.1): 12pt, bold, 
               fontSize = 12;
               fontStyle = 'bold';
-              spaceBefore = 5;
-              spaceAfter = 2;
-            } else if (level >= 4) {
-              // Fourth level and deeper pages (1.1.1.1+): 10pt, bold, 2pt before, 1pt after
+              spaceBefore = 3;
+              spaceAfter = 1;
+            } else if (level === 4) {
+              // Fourth level pages (1.1.1.1): 10pt, bold, 
               fontSize = 10;
               fontStyle = 'bold';
-              spaceBefore = 2;
+              spaceBefore = 3;
+              spaceAfter = 1;
+            } else if (level >= 5) {
+              // Fifth level and deeper pages (1.1.1.1.1+): 10pt, bold, 
+              fontSize = 10;
+              fontStyle = 'bold';
+              spaceBefore = 3;
               spaceAfter = 1;
             }
           } else if (text.endsWith(' database')) {
-            // Database: 12pt, bold, 5pt before, 2pt after
+            // Database: 12pt, bold
             fontSize = 12;
             fontStyle = 'bold';
-            spaceBefore = 5;
-            spaceAfter = 2;
-          } else if (text === 'properties:') {
-            // Properties: capitalize, 10pt, bold, 2pt before, 0pt after
+            spaceBefore = 6;//8;
+            spaceAfter = 1;//3;
+          } else if (text.endsWith(' data source')) {
+            // Data source: 10pt, bold
             fontSize = 10;
             fontStyle = 'bold';
-            spaceBefore = 2;
-            spaceAfter = 0;
+            spaceBefore = 3;//6;
+            spaceAfter = 1;//2;
+          } else if (text === 'Properties') {
+            // Properties: 8pt, bold
+            fontSize = 8;
+            fontStyle = 'bold';
+            spaceBefore = 3;//4;
+            spaceAfter = 1;
+          } else if (text === 'Data source pages') {
+            // Data source pages: 8pt, bold
+            fontSize = 8;
+            fontStyle = 'bold';
+            spaceBefore = 3;//4;
+            spaceAfter = 1;
+          } else if (text === 'Database pages') {
+            // Database pages: 8pt, bold
+            fontSize = 8;
+            fontStyle = 'bold';
+            spaceBefore = 3;
+            spaceAfter = 1;
+          } else if (text === 'Pages') {
+            // Pages: 10pt, bold
+            fontSize = 10;
+            fontStyle = 'bold';
+            spaceBefore = 3;
+            spaceAfter = 1;
+          } else if (text === 'properties:') {
+            // Properties: capitalize, 10pt, bold, 
+            fontSize = 8;
+            fontStyle = 'bold';
+            spaceBefore = 3;
+            spaceAfter = 1;
             text = 'Properties';
           } else if (text === 'items:') {
-            // Items: capitalize, 10pt, bold, 2pt before, 0pt after
+            // Items: capitalize, 10pt, bold, 
             fontSize = 10;
             fontStyle = 'bold';
             spaceBefore = 2;
-            spaceAfter = 0;
+            spaceAfter = 2;//0;
             text = 'Items';
           }
           
@@ -741,20 +1100,43 @@ export class NumberedFormatter extends BaseFormatter {
           doc.setFontSize(fontSize);
           doc.setFont('helvetica', fontStyle);
           
+          // Replace special characters that jsPDF can't handle properly
+          const cleanText = text.replace(/→/g, '->').replace(/[^\x00-\x7F]/g, '');
+          
           // Truncate very long lines to fit PDF width
-          const fullText = `${number} ${text}`;
+          const fullText = `${number} ${cleanText}`;
           const truncatedLine = fullText.length > 120 ? fullText.substring(0, 117) + '...' : fullText;
           doc.text(truncatedLine, margin, yPosition);
           
-          // Apply spacing after
-          yPosition += fontSize * 0.35 + spaceAfter; // Font size in points converted to PDF units
+          // Calculate line height based on font size with proper spacing
+          // Use smaller multiplier for consistent, tight line spacing
+          const lineHeight = Math.max(3, fontSize * 0.25);
+          yPosition += lineHeight + spaceAfter;
         } else {
           // Default formatting for non-matching lines
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'normal');
-          const truncatedLine = line.length > 120 ? line.substring(0, 117) + '...' : line;
-          doc.text(truncatedLine, margin, yPosition);
-          yPosition += 6;
+          // Check if we're inside Properties section - these are individual property items
+          if (insidePropertiesSection) {
+            // Property items: 8pt, normal, with breathing room
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            
+            // Add space before property item for better readability
+            yPosition += 2;
+            
+            // Replace special characters that jsPDF can't handle properly
+            const cleanLine = line.replace(/→/g, '->').replace(/[^\x00-\x7F]/g, '');
+            const truncatedLine = cleanLine.length > 120 ? cleanLine.substring(0, 117) + '...' : cleanLine;
+            doc.text(truncatedLine, margin, yPosition);
+          } else {
+            // Other default lines: minimal spacing
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            
+            // Replace special characters that jsPDF can't handle properly
+            const cleanLine = line.replace(/→/g, '->').replace(/[^\x00-\x7F]/g, '');
+            const truncatedLine = cleanLine.length > 120 ? cleanLine.substring(0, 117) + '...' : cleanLine;
+            doc.text(truncatedLine, margin, yPosition);
+          }
         }
       }
     }
@@ -805,7 +1187,7 @@ export class NumberedFormatter extends BaseFormatter {
       new Paragraph({
         children: [
           new TextRun({
-            text: `Summary: ${data.summary.totalPages} Pages | ${data.summary.totalDatabases} Databases | ${data.summary.totalProperties} Properties`,
+            text: `Summary: ${data.summary.totalPages} Pages | ${data.summary.totalDatabases} Databases | ${data.includeSchema ? data.summary.totalProperties + ' Properties' : 'Properties not included'}`,
             bold: true,
           }),
         ],
@@ -814,6 +1196,9 @@ export class NumberedFormatter extends BaseFormatter {
     );
     
     // Add content lines with specific formatting
+    let insidePagesSection = false;
+    let pagesSectionLevel = 0;
+    
     for (const line of lines) {
       if (line.trim()) {
         // Determine the level based on the number prefix
@@ -823,6 +1208,15 @@ export class NumberedFormatter extends BaseFormatter {
           let text = originalText;
           const level = number.split('.').length;
           
+          // Track when we enter/exit Database pages or Data source pages sections
+          if (text === 'Database pages' || text === 'Data source pages') {
+            insidePagesSection = true;
+            pagesSectionLevel = level;
+          } else if (insidePagesSection && level <= pagesSectionLevel) {
+            // We've exited the pages section
+            insidePagesSection = false;
+          }
+          
           // Determine formatting based on content type and level
           let fontSize = 16; // default (8pt * 2 = 16 half-points)
           let bold = false;
@@ -830,7 +1224,14 @@ export class NumberedFormatter extends BaseFormatter {
           let spaceAfter = 0;
           
           if (text.endsWith(' page')) {
-            if (level === 1) {
+            // Check if this is a page inside Database pages or Data source pages section
+            if (insidePagesSection) {
+              // Pages inside Database/Data source pages: 8pt, normal
+              fontSize = 16; // 8pt * 2
+              bold = false;
+              spaceBefore = 20; // 1pt * 20
+              spaceAfter = 0;
+            } else if (level === 1) {
               // First level pages: 20pt, bold, 10pt before, 5pt after
               fontSize = 40; // 20pt * 2
               bold = true;
@@ -861,6 +1262,36 @@ export class NumberedFormatter extends BaseFormatter {
             bold = true;
             spaceBefore = 100; // 5pt * 20
             spaceAfter = 40; // 2pt * 20
+          } else if (text.endsWith(' data source')) {
+            // Data source: 10pt, bold
+            fontSize = 20; // 10pt * 2
+            bold = true;
+            spaceBefore = 100; // 5pt * 20
+            spaceAfter = 40; // 2pt * 20
+          } else if (text === 'Properties') {
+            // Properties: 8pt, bold
+            fontSize = 16; // 8pt * 2
+            bold = true;
+            spaceBefore = 40; // 2pt * 20
+            spaceAfter = 0;
+          } else if (text === 'Data source pages') {
+            // Data source pages: 8pt, bold
+            fontSize = 16; // 8pt * 2
+            bold = true;
+            spaceBefore = 40; // 2pt * 20
+            spaceAfter = 0;
+          } else if (text === 'Database pages') {
+            // Database pages: 8pt, bold
+            fontSize = 16; // 8pt * 2
+            bold = true;
+            spaceBefore = 40; // 2pt * 20
+            spaceAfter = 0;
+          } else if (text === 'Pages') {
+            // Pages: 10pt, bold
+            fontSize = 20; // 10pt * 2
+            bold = true;
+            spaceBefore = 40; // 2pt * 20
+            spaceAfter = 0;
           } else if (text === 'properties:') {
             // Properties: capitalize, 10pt, bold, 2pt before, 0pt after
             fontSize = 20; // 10pt * 2
@@ -934,8 +1365,17 @@ export class NumberedFormatter extends BaseFormatter {
     const allNodes: TreeNode[] = [];
     const nodeMap = new Map<string, TreeNode>();
 
-    // Create nodes for all pages
+    // Determine if we're using new API with data sources
+    const hasDataSources = data.databases.some(db => db.dataSources && db.dataSources.length > 0);
+
+    // Create nodes for pages
     for (const page of data.pages) {
+      // For NEW API: Skip database/data source pages (they come from dataSource.pages)
+      // For OLD API: Keep database pages (they'll be added to Items section)
+      if (hasDataSources && (page.parent.type === 'database_id' || page.parent.type === 'data_source_id')) {
+        continue;
+      }
+      
       const node: TreeNode = {
         id: page.id,
         title: `${page.title || 'Untitled Page'} page`,
@@ -947,7 +1387,7 @@ export class NumberedFormatter extends BaseFormatter {
       nodeMap.set(page.id, node);
     }
 
-    // Create nodes for databases and their properties
+    // Create nodes for databases and their data sources
     for (const database of data.databases) {
       const dbNode: TreeNode = {
         id: database.id,
@@ -959,8 +1399,79 @@ export class NumberedFormatter extends BaseFormatter {
       allNodes.push(dbNode);
       nodeMap.set(database.id, dbNode);
 
-      // Create a "properties:" section if database has properties
-      if (database.properties.length > 0) {
+      // NEW API 2025-09-03: Structure with data sources
+      if (database.dataSources && database.dataSources.length > 0) {
+        // Each data source gets its own section under the database
+        for (const dataSource of database.dataSources) {
+          const dsNode: TreeNode = {
+            id: dataSource.id,
+            title: `${dataSource.title || dataSource.name} data source`,
+            type: 'data-source',
+            children: [],
+            parentId: database.id
+          };
+          dbNode.children.push(dsNode);
+          nodeMap.set(dataSource.id, dsNode);
+
+          // Add Properties section under data source
+          if (dataSource.properties.length > 0) {
+            const propertiesNode: TreeNode = {
+              id: `${dataSource.id}-properties`,
+              title: 'Properties',
+              type: 'properties-section',
+              children: [],
+              parentId: dataSource.id
+            };
+            dsNode.children.push(propertiesNode);
+            nodeMap.set(propertiesNode.id, propertiesNode);
+
+            // Reverse the properties array to match API order requirement
+            const reversedProperties = [...dataSource.properties].reverse();
+
+            // Add property nodes as children of the properties section
+            for (const property of reversedProperties) {
+              const propNode: TreeNode = {
+                id: `${dataSource.id}-${property.id}`,
+                title: this.formatPropertyTitle(property, data.databases),
+                type: 'property',
+                children: [],
+                parentId: propertiesNode.id
+              };
+              propertiesNode.children.push(propNode);
+              nodeMap.set(propNode.id, propNode);
+            }
+          }
+
+          // Add Pages section under data source if includeItems is true AND pages exist
+          if (data.includeItems && dataSource.pages && dataSource.pages.length > 0) {
+            const pagesNode: TreeNode = {
+              id: `${dataSource.id}-pages`,
+              title: 'Data source pages',
+              type: 'pages-section',
+              children: [],
+              parentId: dataSource.id
+            };
+            dsNode.children.push(pagesNode);
+            nodeMap.set(pagesNode.id, pagesNode);
+
+            // Add pages from the data source's pages array (fetched from new API)
+            for (const dsPage of dataSource.pages) {
+              const pageNode: TreeNode = {
+                id: dsPage.id,
+                title: `${dsPage.title || 'Untitled Page'} page`,
+                type: 'page',
+                children: [],
+                parentId: pagesNode.id
+              };
+              pagesNode.children.push(pageNode);
+              nodeMap.set(pageNode.id, pageNode);
+              allNodes.push(pageNode);
+            }
+          }
+        }
+      } 
+      // OLD API: Fallback to old structure if no data sources
+      else if (database.properties.length > 0) {
         const propertiesNode: TreeNode = {
           id: `${database.id}-properties`,
           title: 'properties:',
@@ -971,15 +1482,11 @@ export class NumberedFormatter extends BaseFormatter {
         dbNode.children.push(propertiesNode);
         nodeMap.set(propertiesNode.id, propertiesNode);
 
-        // Sort properties: title type first, then others
-        const sortedProperties = [...database.properties].sort((a, b) => {
-          if (a.type === 'title' && b.type !== 'title') return -1;
-          if (a.type !== 'title' && b.type === 'title') return 1;
-          return 0;
-        });
+        // Reverse the properties array for consistency
+        const reversedProperties = [...database.properties].reverse();
 
         // Add property nodes as children of the properties section
-        for (const property of sortedProperties) {
+        for (const property of reversedProperties) {
           const propNode: TreeNode = {
             id: property.id,
             title: this.formatPropertyTitle(property, data.databases),
@@ -990,30 +1497,30 @@ export class NumberedFormatter extends BaseFormatter {
           propertiesNode.children.push(propNode);
           nodeMap.set(property.id, propNode);
         }
-      }
 
-      // Create an "items:" section for database pages only when includeItems is true
-      if (data.includeItems) {
-        const itemsNode: TreeNode = {
-          id: `${database.id}-items`,
-          title: 'items:',
-          type: 'items-section',
-          children: [],
-          parentId: database.id
-        };
-        dbNode.children.push(itemsNode);
-        nodeMap.set(itemsNode.id, itemsNode);
+        // Create an "items:" section for old API
+        if (data.includeItems) {
+          const itemsNode: TreeNode = {
+            id: `${database.id}-items`,
+            title: 'Database pages',
+            type: 'items-section',
+            children: [],
+            parentId: database.id
+          };
+          dbNode.children.push(itemsNode);
+          nodeMap.set(itemsNode.id, itemsNode);
 
-        // Add database items (pages that belong to this database) as children of items section
-        const databasePages = data.pages.filter(page => 
-          page.parent.type === 'database_id' && page.parent.id === database.id
-        );
-        
-        for (const dbPage of databasePages) {
-          const existingNode = nodeMap.get(dbPage.id);
-          if (existingNode) {
-            existingNode.parentId = itemsNode.id;
-            itemsNode.children.push(existingNode);
+          // Add database items (pages that belong to this database)
+          const databasePages = data.pages.filter(page => 
+            page.parent.type === 'database_id' && page.parent.id === database.id
+          );
+          
+          for (const dbPage of databasePages) {
+            const existingNode = nodeMap.get(dbPage.id);
+            if (existingNode) {
+              existingNode.parentId = itemsNode.id;
+              itemsNode.children.push(existingNode);
+            }
           }
         }
       }
@@ -1036,10 +1543,15 @@ export class NumberedFormatter extends BaseFormatter {
       }
     }
 
+    // Reverse the order of root nodes (first level)
+    rootNodes.reverse();
+
     return { 
       timestamp: data.timestamp,
       rootNodes, 
-      summary: data.summary
+      summary: data.summary,
+      includeSchema: data.includeSchema,
+      includeItems: data.includeItems
     };
   }
 
@@ -1052,30 +1564,37 @@ export class NumberedFormatter extends BaseFormatter {
         if (optionNames.length > 0) {
           title += ` [${optionNames.join(', ')}]`;
         }
-      } else if (property.type === 'relation' && property.options.length > 0) {
-        const relationOption = property.options[0];
-        const relatedDb = databases.find(db => db.id === relationOption.database_id);
-        const dbName = relatedDb ? relatedDb.title : 'Unknown Database';
-        
-        let relationDetails = `→ ${dbName}`;
-        
-        if (relationOption.type === 'dual_property') {
-          relationDetails += ' (two-way';
-        } else {
-          relationDetails += ' (one-way';
+      } else if (property.type === 'relation') {
+        if (property.options.database_id) {
+          const relatedDb = databases.find(db => db.id === property.options.database_id);
+          const dbName = relatedDb ? relatedDb.title : property.options.database_id;
+          
+          let relationDetails = `→ ${dbName}`;
+          
+          let constraints = [];
+          
+          if (property.options.dual_property) {
+            constraints.push('two-way');
+          } else {
+            constraints.push('one-way');
+          }
+          
+          if (property.options.single_property !== undefined) {
+            constraints.push('limit: 1 page');
+          } else {
+            constraints.push('no limit');
+          }
+          
+          relationDetails += ` (${constraints.join(', ')})`;
+          
+          title += ` ${relationDetails}`;
         }
-        
-        if (relationOption.single_property === false) {
-          relationDetails += ', no limit)';
-        } else {
-          relationDetails += ', limit: 1 page)';
-        }
-        
-        title += ` ${relationDetails}`;
-      } else if (property.type === 'formula' && property.options.length > 0) {
-        const formulaExpression = property.options[0].expression;
-        if (formulaExpression) {
-          title += ` [${formulaExpression}]`;
+      } else if (property.type === 'formula') {
+        if (property.options.expression) {
+          let expression = property.options.expression.toString();
+          expression = expression.replace(/\{\{notion:block_property:[^}]+\}\}/g, '[Property]');
+          expression = expression.replace(/\s+/g, ' ').trim();
+          title += ` [${expression}]`;
         }
       }
     }

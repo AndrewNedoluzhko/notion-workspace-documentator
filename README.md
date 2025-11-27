@@ -1,334 +1,362 @@
-# 🚀 Notion Workspace Mapper
+# Notion Workspace Mapper
 
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)
-![Notion](https://img.shields.io/badge/Notion-%23000000.svg?style=for-the-badge&logo=notion&logoColor=white)
+![Logo](web/img/logo_3_3.png)
 
-A powerful, interactive CLI tool to automatically map your entire Notion workspace structure. Generate professional documentation in multiple formats including PDF, DOCX, Markdown, and more!
+Map your Notion workspace structure with ease. Generate comprehensive documentation of your workspace including pages, databases, properties, and data sources in multiple formats.
 
-## ✨ Features
+## Features
 
-- 🎯 **Interactive CLI Interface** - User-friendly prompts for easy operation
-- 📄 **Multi-Format Output** - PDF, DOCX, Markdown, JSON, CSV, Tree structure, and TXT
-- 🎨 **Professional Formatting** - Beautiful, business-ready documentation with proper typography
-- 📊 **Comprehensive Mapping** - Pages, databases, properties, relationships, and schemas
-- 🔧 **Flexible Configuration** - Choose workspace name, output formats, and include/exclude options
-- 🚀 **Modern TypeScript** - Built with TypeScript for reliability and maintainability
-- � **Smart File Naming** - Custom workspace-based file naming with timestamps
+- 🗺️ **Complete Workspace Mapping** - Capture entire workspace structure
+- 📊 **Multiple Output Formats** - JSON, Markdown, CSV, Tree TXT, Numbered TXT, DOCX, PDF
+- 🔗 **Data Sources Support** - Full support for Notion's 2025-09-03 API with data sources
+- 🎨 **Web Interface** - Beautiful, modern web UI for easy access
+- ⚡ **CLI Support** - Command-line interface for automation
+- 📋 **Schema Documentation** - Capture database properties and their configurations
+- 📄 **Items Inclusion** - Optionally include database items (pages) in mapping
 
-## 🎬 Demo
+## Prerequisites
 
-```bash
-$ npm start
-
-🚀 Welcome to Notion Workspace Mapper!
-
-✔ Enter Workspace Name: My Company Wiki
-✔ Enter NOTION_API_KEY: ****************************
-✔ Choose document format: PDF - Portable document format
-✔ Include database items (pages) in documentation? Yes
-
-📋 Configuration:
-   Workspace: My Company Wiki
-   Format: pdf
-   Include Items: Yes
-   Output Directory: ./output
-
-🔍 Testing Notion API connection...
-✅ Connected to Notion API
-
-📄 Fetching pages... Found 150 pages
-🗄️ Fetching databases... Found 25 databases
-📝 Generating documentation...
-✅ Documentation generated successfully!
-
-📁 Generated file: output/My_Company_Wiki_WP_2025-11-07-14-30-15.pdf
-```
+- Node.js 16+ installed
+- A Notion workspace
+- A Notion integration token (see setup below)
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Node.js (v16 or higher)
-- A Notion account with workspace access
+### 1. Create a Notion Integration
 
-### Installation
+**Important:** You must create a **new, separate integration** specifically for this mapper tool.
 
-1. **Clone this repository:**
-```bash
-git clone https://github.com/AndrewNedoluzhko/notion-workspace-mapper.git
-cd notion-workspace-mapper
+1. Go to [https://www.notion.so/my-integrations](https://www.notion.so/my-integrations)
+2. Click **"+ New integration"**
+3. Give it a meaningful name (e.g., "Workspace Mapper")
+4. Select your workspace
+5. Set capabilities:
+   - ✅ **Read content** - Required
+   - ✅ **Read user information** - Optional
+   - ❌ Update content - Not needed
+   - ❌ Insert content - Not needed
+6. Click **"Submit"** to create the integration
+7. Copy the **Internal Integration Token** (starts with `ntn_`)
+
+> **💡 Tip:** Keep this token secure! It provides access to all pages/databases you share with this integration.
+
+### 2. Share Your Workspace with the Integration
+
+**Critical Step:** The integration can only access content that is explicitly shared with it.
+
+#### For Root Pages/Databases:
+
+1. Open the **root page** or **root database** in Notion
+2. Click the **"..."** menu (top right)
+3. Scroll down and click **"Add connections"**
+4. Search for your integration name (e.g., "Workspace Mapper")
+5. Click to add it
+
+#### Automatic Child Access:
+
+> **✨ Important:** When you add an integration to a root page, it **automatically gains access to all child pages and databases** under that page. You don't need to share each child individually.
+
+**Example Structure:**
+```
+📄 My Root Page [Share integration here]
+  ├── 📄 Child Page 1 [Automatically accessible]
+  ├── 📄 Child Page 2 [Automatically accessible]
+  ├── 🗄️ Database A [Automatically accessible]
+  │   ├── Properties [Automatically accessible]
+  │   └── Items [Automatically accessible]
+  └── 🗄️ Database B [Automatically accessible]
 ```
 
-2. **Install dependencies:**
+#### For Multiple Root Items:
+
+If your workspace has multiple root-level pages/databases you want to include:
+
+1. Share the integration with **each root item**
+2. All their children will be automatically included
+
+### 3. Install Dependencies
+
 ```bash
 npm install
 ```
 
-3. **Build the project:**
+### 4. Build the Project
+
 ```bash
 npm run build
 ```
 
-4. **Run the interactive CLI:**
+## 📖 Usage
+
+### Web Interface (Recommended)
+
+1. Start the web server:
+```bash
+node server.js
+```
+
+2. Open your browser and navigate to:
+```
+http://localhost:3000
+```
+
+3. Fill in the form:
+   - **Workspace Name:** A friendly name for your workspace
+   - **Notion API Key:** Your integration token (ntn_...)
+   - **Output Formats:** Select desired formats (JSON, Markdown, CSV, Tree TXT, Numbered TXT, DOCX, PDF)
+   - **Options:**
+     - ☑️ Include database schema (properties and data sources)
+     - ☐ Include database items (pages) in mapping
+   - **API Version:** Choose 2025-09-03 (recommended) or 2022-06-28 (legacy)
+
+4. Click **"Generate Mapping"**
+
+5. Watch the progress:
+   - ⟳ Connecting to Notion API...
+   - ⟳ Fetching pages...
+   - ⟳ Fetching databases...
+   - ⟳ Generating mapping...
+
+6. Download your generated files from the results section
+
+### Command Line Interface
+
+#### Interactive Mode:
 ```bash
 npm start
 ```
 
-## 🔧 Setup Your Notion Integration
+The CLI will guide you through:
+- Workspace name
+- API token (secure input)
+- Format selection
+- Schema/items inclusion
+- API version selection
 
-### Step 1: Create Notion Integration
-
-1. Visit [Notion Integrations](https://www.notion.so/my-integrations)
-2. Click **"+ New integration"**
-3. Name it (e.g., "Workspace Documentator")
-4. Select your workspace
-5. Click **"Submit"**
-6. Copy the **Integration Token** (starts with `secret_` or `ntn_`)
-
-### Step 2: Share Content with Integration
-
-⚠️ **Important**: Share pages/databases with your integration to access them.
-
-1. Open any page or database in Notion
-2. Click **"Share"** in the top-right corner
-3. Click **"Invite"** and select your integration
-4. Grant **Read** permissions
-
-## 📋 Output Formats
-
-| Format | Extension | Description | Use Case |
-|--------|-----------|-------------|----------|
-| **PDF** | `.pdf` | Professional document with hierarchical formatting | Reports, presentations, archival |
-| **DOCX** | `.docx` | Microsoft Word document with proper typography | Editing, collaboration, templates |
-| **Numbered TXT** | `.txt` | Hierarchical numbered structure | Quick reference, planning |
-| **Markdown** | `.md` | GitHub-friendly format with links | Documentation, wikis |
-| **JSON** | `.json` | Structured data format | API integration, analysis |
-| **CSV** | `.csv` | Spreadsheet-compatible format | Data analysis, imports |
-| **Tree** | `.txt` | Visual tree structure with icons | Architecture overview |
-| **All** | Multiple | Generate all formats at once | Complete documentation set |
-
-### Sample Output Structure
-
-```
-📁 output/
-├── 📄 My_Workspace_WP_2025-11-07-14-30-15.pdf      # Professional PDF
-├── 📄 My_Workspace_WP_2025-11-07-14-30-15.docx     # Word document
-├── 📄 My_Workspace_WP_2025-11-07-14-30-15.md       # Markdown
-├── 📄 My_Workspace_WP_2025-11-07-14-30-15.json     # JSON data
-├── 📄 My_Workspace_WP_2025-11-07-14-30-15.csv      # CSV spreadsheet
-└── 📄 My_Workspace_WP_2025-11-07-14-30-15.txt      # Tree structure
-```
-
-## 💼 Interactive Usage
-
-The tool features a beautiful interactive CLI that guides you through the documentation process:
-
-### Interactive Prompts
-
-1. **📝 Workspace Name**: Enter your workspace name for file naming
-2. **🔑 API Key**: Securely enter your Notion integration token
-3. **📄 Format Selection**: Choose from 8 output formats
-4. **📊 Items Inclusion**: Toggle database items (pages) inclusion
-
-### Example Session
-
+#### Non-Interactive Mode:
 ```bash
-🚀 Welcome to Notion Workspace Documentator!
-
-✔ Enter Workspace Name: Product Roadmap 2025
-✔ Enter NOTION_API_KEY: ********************************
-✔ Choose document format: All - Generate all formats
-✔ Include database items (pages) in documentation? Yes
-
-📋 Configuration:
-   Workspace: Product Roadmap 2025
-   Format: all
-   Include Items: Yes
-   Output Directory: ./output
-
-🔍 Testing Notion API connection...
-✅ Connected to Notion API
-
-📄 Fetching pages... Found 89 pages
-🗄️ Fetching databases... Found 12 databases
-   Found 156 total properties
-
-📝 Generating documentation...
-✅ Documentation generated successfully!
-
-📁 Generated files:
-   - Product_Roadmap_2025_WP_2025-11-07-14-30-15.json
-   - Product_Roadmap_2025_WP_2025-11-07-14-30-15.md
-   - Product_Roadmap_2025_WP_2025-11-07-14-30-15.csv
-   - Product_Roadmap_2025_WP_2025-11-07-14-30-15.txt
-   - Product_Roadmap_2025_WP_2025-11-07-14-30-15.pdf
-   - Product_Roadmap_2025_WP_2025-11-07-14-30-15.docx
-
-📊 Summary:
-   Pages: 89
-   Databases: 12
-   Properties: 156
+npm start -- --non-interactive \
+  --workspace-name "My Workspace" \
+  --api-key "ntn_your_token_here" \
+  --format all \
+  --include-schema \
+  --include-items \
+  --api-version 2025-09-03 \
+  --output ./output
 ```
 
-## ⚙️ Advanced Usage
+#### Available Options:
+- `--non-interactive` - Skip interactive prompts
+- `--workspace-name <name>` - Name for your workspace
+- `--api-key <key>` - Notion API token
+- `--format <format>` - Output format: json, markdown, csv, tree, numbered-txt, docx, pdf, or all
+- `--output <directory>` - Output directory (default: ./output)
+- `--include-schema` - Include database schema (properties and data sources)
+- `--include-items` - Include database items (pages)
+- `--api-version <version>` - API version: 2022-06-28 or 2025-09-03 (default)
+- `--test-connection` - Test API connection and exit
 
-### Non-Interactive Mode (Legacy)
+## 📁 Output Formats
 
-For automation and CI/CD pipelines:
+### File Naming Convention
 
-```bash
-# Set environment variables
-export NOTION_API_KEY="your_api_key_here"
+All files follow this pattern:
+```
+<WorkspaceName>_NWS_<YYYY-MM-DD>-<HH-MM-SS>.<extension>
 
-# Generate specific format
-npm start -- -f pdf
-
-# Generate all formats
-npm start -- -f all
-
-# Specify output directory
-npm start -- -o ./documentation
-
-# Test connection
-npm start -- --test-connection
+Examples:
+- MyWorkspace_NWS_2025-11-26-14-30-00.json
+- MyWorkspace_NWS_tree_2025-11-26-14-30-00.txt
+- MyWorkspace_NWS_numbered_2025-11-26-14-30-00.txt
+- MyWorkspace_NWS_2025-11-26-14-30-00.docx
 ```
 
-### CLI Options
+### Format Details
 
-| Option | Description | Example |
-|--------|-------------|---------|
-| `-f, --format` | Output format | `-f pdf` |
-| `-o, --output` | Output directory | `-o ./docs` |
-| `--test-connection` | Test API connection | `--test-connection` |
+| Format | Extension | Description | Structure | Best For |
+|--------|-----------|-------------|-----------|----------|
+| **JSON** | `.json` | Raw structured data | Flat arrays | API integration, data processing |
+| **Markdown** | `.md` | Hierarchical format with metadata | Progressive headings (# → ## → ###)<br/>• Pages/databases with metadata bullets<br/>• Properties as bullet list<br/>• "page", "database", "data source" suffixes | Documentation, GitHub wikis, human-readable hierarchy |
+| **CSV** | `.csv` | Spreadsheet format | Flat tables | Excel, data analysis |
+| **Tree TXT** | `_tree.txt` | Visual tree structure | ASCII tree with icons (📄 📁 🗄️) | Quick overview, ASCII visualization |
+| **Numbered TXT** | `_numbered.txt` | Numbered hierarchy | Decimal notation (1.1.1.1) | Detailed navigation, printing |
+| **DOCX** | `.docx` | Microsoft Word | Hierarchical with styled headings | Reports, formal documentation |
+| **PDF** | `.pdf` | Portable document | Hierarchical with styled headings | Sharing, archiving |
 
-## 📊 Documentation Content
+## ⚙️ Configuration Options
 
-### What Gets Documented
+### Include Database Schema
+When enabled, captures:
+- ✅ Database properties (name, type, options)
+- ✅ Property configurations (select options, formulas, relations)
+- ✅ Data sources and their schemas
 
-- **📄 Pages**: All accessible pages with titles, IDs, and metadata
-- **🗄️ Databases**: Complete database schemas and configurations
-- **🔧 Properties**: Detailed property definitions, types, and options
-- **🔗 Relations**: Database relationships and connections
-- **📝 Formulas**: Formula expressions and calculations
-- **🎛️ Views**: Database views and filtering configurations
-- **📅 Timestamps**: Creation and modification dates
+When disabled:
+- Shows database names and structure only
+- Properties displayed as: **"Properties: not included"**
 
-### Professional Formatting Features
+### Include Database Items
+When enabled, captures:
+- ✅ All pages that belong to databases
+- ✅ Data source items
+- ✅ Full database content
 
-#### PDF Output
-- **Hierarchical Font Sizing**: 20pt → 14pt → 12pt → 10pt for levels
-- **Professional Typography**: Bold headings, proper spacing
-- **Business-Ready Layout**: Clean, printable format
+When disabled:
+- Only workspace structure and databases
+- No database item pages included
 
-#### DOCX Output  
-- **Microsoft Word Compatibility**: Proper .docx formatting
-- **Professional Styling**: Consistent fonts and spacing
-- **Template-Ready**: Easy to customize and brand
+### API Version
 
-## 🛠️ Development
+#### 2025-09-03 (Recommended)
+- ✅ Full data sources support
+- ✅ Enhanced database schema
+- ✅ Latest Notion features
+- 🆕 Introduced data sources concept
 
-### Scripts
+#### 2022-06-28 (Legacy)
+- ⚠️ Basic database support only
+- ⚠️ No data sources
+- 📦 For older integrations
 
-```bash
-# Start interactive CLI
-npm start
+## 🎨 Web UI Features
 
-# Development mode with auto-reload
-npm run dev
+- **Modern Design** - Beautiful sage green/teal color scheme
+- **Real-time Progress** - Watch each step complete
+- **Automatic Scrolling** - Smooth scroll to progress section
+- **Error Handling** - Clear, actionable error messages
+- **Multi-format Support** - Generate multiple formats at once
+- **Instant Download** - Download files immediately after generation
 
-# Build TypeScript
-npm run build
+## 📝 Markdown Format Details
 
-# Test connection
-npm start -- --test-connection
+The Markdown format provides a hierarchical, human-readable representation of your workspace:
+
+### Structure Example:
+```markdown
+# Root Page page
+- **ID:** `abc-123`
+- **URL:** https://notion.so/...
+- **Created:** 20.11.2024, 14:12:00
+- **Last Edited:** 18.11.2025, 10:29:00
+- **Parent Type:** workspace
+
+## Child Page page
+- **ID:** `def-456`
+- **URL:** https://notion.so/...
+- **Parent Type:** page_id
+- **Parent ID:** `abc-123`
+
+### Some Database database
+- **ID:** `ghi-789`
+- **URL:** https://notion.so/...
+- **Parent Type:** page_id
+
+#### Database View data source
+- **ID:** `jkl-012`
+- **Created:** 08.05.2025, 13:33:00
+- **Last Edited:** 09.10.2025, 12:47:00
+- **Parent Type:** database_id
+- **Parent ID:** `ghi-789`
+
+##### Properties
+- **Property Name:** prop-id-123, text, [], Property description
+- **Status:** prop-id-456, status, [To Do, In Progress, Done]
+- **Relation:** prop-id-789, relation, → Target Database (two-way, no limit)
+
+##### Data source pages
+###### Item Page 1 page
+- **ID:** `mno-345`
+- **URL:** https://notion.so/...
 ```
 
-### Project Structure
-
-```
-notion-workspace-mapper/
-├── 📁 src/
-│   ├── 📄 index.ts              # Main CLI application
-│   ├── 📁 services/
-│   │   └── 📄 notion.ts         # Notion API service
-│   ├── 📁 formatters/
-│   │   └── 📄 index.ts          # Output formatters (PDF, DOCX, etc.)
-│   ├── 📁 types/
-│   │   └── 📄 index.ts          # TypeScript interfaces
-│   └── 📄 config.ts             # Configuration management
-├── 📁 output/                   # Generated documentation
-├── 📄 package.json              # Dependencies and scripts
-├── 📄 tsconfig.json             # TypeScript configuration
-└── 📄 README.md                 # This file
-```
+### Key Features:
+- **Progressive Heading Levels:** Nested items use deeper heading levels (# → ## → ### → ####)
+- **Type Suffixes:** All items clearly labeled as "page", "database", or "data source"
+- **Metadata Bullets:** ID, URL, dates, and parent info as bullet points under each item
+- **Property Details:** Properties shown as bullet list with ID, type, options, and description
+- **Hierarchical Structure:** Matches the actual Notion workspace organization
 
 ## 🔧 Troubleshooting
 
-### Common Issues
+### "API token is invalid"
+- ✅ Check your token starts with `ntn_`
+- ✅ Verify the integration is active at notion.so/my-integrations
+- ✅ Ensure you copied the entire token
 
-| Issue | Solution |
-|-------|----------|
-| **"API token is invalid"** | Verify your integration token and workspace access |
-| **"No pages/databases found"** | Share content with your integration in Notion |
-| **"API key seems too short"** | Ensure you copied the complete integration token |
-| **Connection timeout** | Check internet connection and Notion service status |
+### "No pages/databases found"
+- ✅ Share at least one root page/database with your integration
+- ✅ Remember: Sharing a root page automatically shares all children
+- ✅ Check the integration appears in the page's "Connections"
 
-### Debug Steps
+### "Properties: 0" in output
+- ✅ Enable "Include database schema" option
+- ✅ Ensure databases have properties defined
+- ✅ Verify the integration can read database schemas
 
-1. **Test Connection**:
-   ```bash
-   npm start -- --test-connection
-   ```
+### Files not including database items
+- ✅ Enable "Include database items (pages)" option
+- ✅ Ensure databases contain items
+- ✅ Check data sources have pages
 
-2. **Check Integration Permissions**:
-   - Visit your Notion integration settings
-   - Verify workspace access
-   - Ensure content is shared with integration
+## 📚 Examples
 
-3. **Validate API Key Format**:
-   - Should start with `secret_` or `ntn_`
-   - Must be at least 20 characters long
+### Example 1: Full Workspace Documentation
+```bash
+npm start -- --non-interactive \
+  --workspace-name "Company Wiki" \
+  --api-key "ntn_xxx" \
+  --format all \
+  --include-schema \
+  --include-items
+```
+
+### Example 2: Schema-Only Export
+```bash
+npm start -- --non-interactive \
+  --workspace-name "Database Schemas" \
+  --api-key "ntn_xxx" \
+  --format json \
+  --include-schema
+```
+
+### Example 3: Tree Structure Overview
+```bash
+npm start -- --non-interactive \
+  --workspace-name "Project Structure" \
+  --api-key "ntn_xxx" \
+  --format tree
+```
+
+## 🔐 Security Notes
+
+- **Never commit** your API token to version control
+- **Use environment variables** for automation: `export NOTION_API_KEY="ntn_..."`
+- **Rotate tokens** regularly at notion.so/my-integrations
+- **Create separate integrations** for different purposes
+- **Review integration access** periodically
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how to get started:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Development Guidelines
-
-- Follow TypeScript best practices
-- Add tests for new features
-- Update documentation for changes
-- Ensure all tests pass before submitting
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📄 License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+See [LICENSE](LICENSE) file for details.
 
-## ⭐ Support
+## 🔗 Links
 
-If this tool helps you document your Notion workspace, please consider:
+- [Notion API Documentation](https://developers.notion.com/)
+- [Create Integration](https://www.notion.so/my-integrations)
+- [GitHub Repository](https://github.com/AndrewNedoluzhko/notion-workspace-mapper)
 
-- ⭐ **Starring** this repository
-- 🐛 **Reporting** issues and bugs
-- 💡 **Suggesting** new features
-- 🤝 **Contributing** to the codebase
+## 📞 Support
 
-## 🙏 Acknowledgments
-
-- Built with [Notion API](https://developers.notion.com/)
-- Powered by [TypeScript](https://www.typescriptlang.com/)
-- CLI interface with [Inquirer.js](https://github.com/SBoudrias/Inquirer.js/)
-- PDF generation with [jsPDF](https://github.com/parallax/jsPDF)
-- Word documents with [docx](https://github.com/dolanmiu/docx)
+If you encounter any issues or have questions:
+1. Check the [Troubleshooting](#-troubleshooting) section
+2. Review Notion's [API documentation](https://developers.notion.com/)
+3. Open an issue on GitHub
 
 ---
 
-**📧 Questions or Issues?** Open an issue on GitHub or reach out to the community!
-
-**🚀 Happy Documenting!** Transform your Notion workspace into professional documentation in minutes.
+**Version:** 1.0.0  
+**Made with ❤️ for the Notion community**

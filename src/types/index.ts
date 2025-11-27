@@ -13,6 +13,7 @@ export interface PageInfo {
   url: string;
   lastEditedTime: string;
   createdTime: string;
+  icon?: string;
   parent: {
     type: string;
     id?: string;
@@ -34,6 +35,7 @@ export interface DataSource {
   title: string;
   description?: string;
   properties: DatabaseProperty[];
+  pages?: PageInfo[]; // Pages belonging to this data source (for new API)
   parent: {
     type: string;
     database_id: string;
@@ -54,6 +56,7 @@ export interface DatabaseInfo {
   description?: string;
   lastEditedTime: string;
   createdTime: string;
+  icon?: string;
   properties: DatabaseProperty[]; // The database's own properties
   dataSources: DataSource[]; // Views from this or other databases
   parent: {
@@ -64,7 +67,7 @@ export interface DatabaseInfo {
 
 export interface WorkspaceDocumentation {
   timestamp: string;
-  workspaceName?: string;
+  workspaceName: string;
   pages: PageInfo[];
   databases: DatabaseInfo[];
   summary: {
@@ -72,13 +75,14 @@ export interface WorkspaceDocumentation {
     totalDatabases: number;
     totalProperties: number;
   };
+  includeSchema?: boolean;
   includeItems?: boolean;
 }
 
 export interface TreeNode {
   id: string;
   title: string;
-  type: 'page' | 'database' | 'property' | 'properties-section' | 'views-section' | 'data-source' | 'items-section';
+  type: 'page' | 'database' | 'property' | 'properties-section' | 'views-section' | 'data-source' | 'items-section' | 'pages-section';
   children: TreeNode[];
   parentId?: string;
   sourceDatabaseName?: string; // For data sources, name of source database
@@ -92,4 +96,6 @@ export interface WorkspaceTree {
     totalDatabases: number;
     totalProperties: number;
   };
+  includeSchema?: boolean;
+  includeItems?: boolean;
 }

@@ -9,7 +9,9 @@
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "clean": "rimraf dist",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "server": "node server.js",
+    "server:dev": "nodemon server.js"
   },
   "keywords": [
     "notion",
@@ -40,15 +42,20 @@
   "dependencies": {
     "@notionhq/client": "^2.2.15",
     "commander": "^11.1.0",
+    "cors": "^2.8.5",
     "docx": "^9.5.1",
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "inquirer": "^12.10.0",
     "jspdf": "^3.0.3"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
     "@types/inquirer": "^9.0.9",
     "@types/jspdf": "^1.3.3",
     "@types/node": "^20.19.24",
+    "nodemon": "^3.0.2",
     "rimraf": "^5.0.5",
     "tsx": "^3.14.0",
     "typescript": "^5.2.2"

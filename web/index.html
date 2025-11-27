@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion Workspace Mapper</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><img src="img/logo_3_3.png" alt="Icon" style="height: 1.2em; vertical-align: middle; margin-bottom: 0.2em;"> Notion Workspace Mapper</h1>
+            <p class="subtitle">Map your Notion workspace structure with ease</p>
+        </header>
+
+        <main>
+            <form id="mapperForm">
+                <!-- Workspace Name -->
+                <div class="form-group">
+                    <label for="workspaceName">
+                        <span class="label-text">Workspace Name</span>
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="workspaceName" 
+                        name="workspaceName" 
+                        placeholder="My Notion Workspace"
+                        required
+                    >
+                </div>
+
+                <!-- API Key -->
+                <div class="form-group">
+                    <label for="apiKey">
+                        <span class="label-text">Notion API Key</span>
+                        <!--<span class="required">*</span>-->
+                        <span class="required"></span>
+                    </label>
+                    <input 
+                        type="password" 
+                        id="apiKey" 
+                        name="apiKey" 
+                        placeholder="ntn_..."
+                        required
+                        minlength="20"
+                    >
+                    <small class="help-text">Get your API key from <a href="https://www.notion.so/my-integrations" target="_blank">notion.so/my-integrations</a></small>
+                </div>
+
+                <!-- Output Formats -->
+                <div class="form-group">
+                    <label>
+                        <span class="label-text">Output Formats</span>
+                        <span class="required">*</span>
+                    </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="formats" value="json"checked >
+                            <span>JSON - Raw data format</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="formats" value="markdown">
+                            <span>Markdown - GitHub-friendly format</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="formats" value="csv">
+                            <span>CSV - Spreadsheet format</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="formats" value="tree">
+                            <span>Tree TXT - Tree structure text</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="formats" value="numbered">
+                            <span>Numbered TXT - Numbered hierarchy</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="formats" value="docx" >
+                            <span>DOCX - Microsoft Word document</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="formats" value="pdf">
+                            <span>PDF - Portable document format</span>
+                        </label>
+                    </div>
+                    <button type="button" id="selectAllFormats" class="link-button">Select All Formats</button>
+                </div>
+
+                <!-- Options -->
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="includeSchema" name="includeSchema" checked>
+                        <span>Include database schema (properties and data sources)</span>
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="includeItems" name="includeItems">
+                        <span>Include database items (pages) in mapping</span>
+                    </label>
+                </div>
+
+                <!-- API Version -->
+                <div class="form-group">
+                    <label for="apiVersion">
+                        <span class="label-text">Notion API Version</span>
+                    </label>
+                    <select id="apiVersion" name="apiVersion">
+                        <option value="2025-09-03" selected>2025-09-03 - Latest with data sources support</option>
+                        <option value="2022-06-28">2022-06-28 - Legacy version (basic support)</option>
+                    </select>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="form-actions">
+                    <button type="submit" id="submitBtn" class="btn-primary">
+                        <span id="btnText">Generate Mapping</span>
+                        <span id="btnSpinner" class="spinner" style="display: none;"></span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Progress Section -->
+            <div id="progressSection" style="display: none;">
+                <div class="progress-box">
+                    <h3>Progress</h3>
+                    <div class="progress-item">
+                        <span>Connecting to Notion API...</span>
+                        <span id="status-connecting" class="status-pending">○</span>
+                    </div>
+                    <div class="progress-item">
+                        <span>Fetching pages...</span>
+                        <span id="status-fetchingPages" class="status-pending">○</span>
+                    </div>
+                    <div class="progress-item">
+                        <span>Fetching databases...</span>
+                        <span id="status-fetchingDatabases" class="status-pending">○</span>
+                    </div>
+                    <div class="progress-item">
+                        <span>Generating mapping...</span>
+                        <span id="status-generating" class="status-pending">○</span>
+                    </div>
+                    <!--<div id="progressDetails" class="progress-details"></div>-->
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" style="display: none;">
+                <div class="results-box success">
+                    <h3>✅ Success!</h3>
+                    <p id="resultMessage"></p>
+                    <div id="downloadLinks"></div>
+                    <div class="summary" id="summaryBox"></div>
+                </div>
+            </div>
+
+            <!-- Error Section -->
+            <div id="errorSection" style="display: none;">
+                <div class="results-box error">
+                    <h3>❌ Error</h3>
+                    <p id="errorMessage"></p>
+                    <button type="button" class="btn-secondary" onclick="resetForm()">Try Again</button>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Version 1.0.0 | <a href="https://github.com/AndrewNedoluzhko/notion-workspace-mapper" target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
